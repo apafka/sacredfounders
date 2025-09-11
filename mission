@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission & Vision - Sacred Founders</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #faf9f5; /* Spring Wood from Founder OS */
+    }
+    .nav-link:hover {
+      color: #dafc67; /* Canary yellow hover */
+    }
+    h1, h2 {
+      font-weight: 800;
+      letter-spacing: -0.025em;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Navigation -->
+  <nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
+      <div class="space-x-6">
+        <a href="index.html" class="nav-link text-gray-800 font-medium text-lg">Home</a>
+        <a href="mission-vision.html" class="nav-link text-gray-800 font-medium text-lg">Mission & Vision</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex-grow py-16">
+    <div class="container mx-auto text-center px-4">
+      <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Mission & Vision</h2>
+      <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">[Your Mission Statement Here]</p>
+      <p class="text-lg text-gray-700 max-w-3xl mx-auto">[Your Vision Statement Here]</p>
+      <p class="text-md text-gray-500 italic">*Placeholder: Add your mission and vision to inspire your community.</p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-white p-6">
+    <div class="container mx-auto text-center">
+      <p>&copy; 2025 Sacred Founders. All rights reserved.</p>
+      <p class="mt-2">
+        <a href="mailto:contact@sacredfounders.com" class="hover:text-[#dafc67]">Contact Us</a> | 
+        <a href="https://x.com/sacredfounders" class="hover:text-[#dafc67]">Follow on X</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
