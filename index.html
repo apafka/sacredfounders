@@ -19,9 +19,6 @@
     .section {
       display: none;
     }
-    .section.active {
-      display: block;
-    }
     h1, h2 {
       font-weight: 800;
       letter-spacing: -0.025em;
@@ -30,20 +27,19 @@
 </head>
 <body class="min-h-screen flex flex-col">
   <!-- Navigation -->
-  <nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
-    <div class="container mx-auto flex justify-between items-center">
-      <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
-      <div class="space-x-6">
-        <button class="nav-link text-gray-800 font-medium text-lg" onclick="showSection('home')">Home</button>
-        <button class="nav-link text-gray-800 font-medium text-lg" onclick="showSection('mission')">Mission & Vision</button>
-      </div>
+  <<nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
+  <div class="container mx-auto flex justify-between items-center">
+    <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
+    <div class="space-x-6">
+      <a href="index.html" class="nav-link text-gray-800 font-medium text-lg">Home</a>
+      <a href="mission-vision.html" class="nav-link text-gray-800 font-medium text-lg">Mission & Vision</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
   <!-- Main Content -->
   <main class="flex-grow">
     <!-- Hero Section -->
-    <section id="home" class="section active hero py-16">
       <div class="container mx-auto text-center px-4">
         <h2 class="text-5xl font-extrabold text-gray-900 mb-6">Build a Purpose-Driven Business with Soul</h2>
         <p class="text-xl text-gray-700 max-w-2xl mx-auto mb-8">Join a curated community of founders who blend spirituality and entrepreneurship to create meaningful impact.</p>
@@ -73,14 +69,5 @@
     </div>
   </footer>
 
-  <!-- JavaScript for Section Toggling -->
-  <script>
-    function showSection(sectionId) {
-      document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-      });
-      document.getElementById(sectionId).classList.add('active');
-    }
-  </script>
 </body>
 </html>
