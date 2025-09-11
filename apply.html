@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apply Now - Sacred Founders</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #faf9f5;
+      color: #161616;
+      line-height: 1.6;
+    }
+    .nav-link:hover {
+      color: #dafc67;
+    }
+    h1, h2 {
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: #161616;
+    }
+    .form-input {
+      border-color: #161616 !important;
+      border-radius: 4px !important;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .form-textarea {
+      border-color: #161616 !important;
+      border-radius: 4px !important;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      resize: vertical;
+    }
+    .form-submit {
+      background-color: #161616 !important;
+      color: white !important;
+      border-radius: 4px !important;
+      padding: 12px 24px !important;
+    }
+    .form-submit:hover {
+      background-color: #dafc67 !important;
+      color: #161616 !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Navigation -->
+  <nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-extrabold text-center">Sacred Founders</h1>
+      <div class="space-x-4 text-sm">
+        <a href="index.html" class="nav-link font-medium">Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex-grow py-16">
+    <div class="container mx-auto px-4 text-center">
+      <h2 class="text-3xl font-extrabold mb-6">Apply to Join Sacred Founders</h2>
+      <p class="text-xl mb-8">Every applicant is interviewed, vetted, and researched. We accept fewer than 8% to ensure community quality.</p>
+      <form action="mailto:pafka@hey.com" method="post" enctype="text/plain" class="max-w-lg mx-auto">
+        <div class="form-field">
+          <label for="name" class="text-xl block mb-2">Name</label>
+          <input type="text" id="name" name="Name" class="form-input" placeholder="Your first name" required>
+        </div>
+        <div class="form-field">
+          <label for="family-name" class="text-xl block mb-2">Family Name</label>
+          <input type="text" id="family-name" name="Family Name" class="form-input" placeholder="Your family name" required>
+        </div>
+        <div class="form-field">
+          <label for="organization" class="text-xl block mb-2">Organization / Company Founded</label>
+          <input type="text" id="organization" name="Organization/Company Founded" class="form-input" placeholder="Your company or organization" required>
+        </div>
+        <div class="form-field">
+          <label for="experience" class="text-xl block mb-2">Any Experience with Plant Medicines / Psychedelics / Drugs</label>
+          <textarea id="experience" name="Experience with Plant Medicines/Psychedelics/Drugs" class="form-textarea" placeholder="Share your experience" rows="4" required></textarea>
+        </div>
+        <div class="form-field">
+          <label for="seeking" class="text-xl block mb-2">What Are You Seeking?</label>
+          <textarea id="seeking" name="What Are You Seeking?" class="form-textarea" placeholder="What do you hope to gain from Sacred Founders?" rows="4" required></textarea>
+        </div>
+        <button type="submit" class="form-submit font-semibold mt-4">Send</button>
+      </form>
+      <p class="text-xl mt-8"><a href="index.html#membership" class="text-[#dafc67] hover:underline">Back to Membership</a></p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#161616] text-white p-6">
+    <div class="container mx-auto text-center">
+      <p class="text-xl">&copy; 2025 Sacred Founders. All rights reserved.</p>
+      <p class="text-xl mt-2">
+        <a href="mailto:pafka@hey.com" class="hover:text-[#dafc67]">Contact Us</a> | 
+        <a href="https://x.com/alanpafka" class="hover:text-[#dafc67]">Follow on X</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
