@@ -3,19 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mission & Vision - Sacred Founders</title>
+  <title>Sacred Founders - Spiritual Community for Visionary Founders</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #faf9f5; /* Spring Wood from Founder OS */
+      background-color: #faf9f5; /* Spring Wood */
+      color: #161616; /* Cod Gray */
+      line-height: 1.6;
     }
     .nav-link:hover {
-      color: #dafc67; /* Canary yellow hover */
+      color: #dafc67; /* Canary Yellow */
     }
     h1, h2 {
       font-weight: 800;
       letter-spacing: -0.025em;
+      color: #161616;
+    }
+    .hero {
+      background: linear-gradient(to bottom, #dafc67, #faf9f5);
+    }
+    html {
+      scroll-behavior: smooth;
     }
   </style>
 </head>
@@ -23,29 +32,98 @@
   <!-- Navigation -->
   <nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
     <div class="container mx-auto flex justify-between items-center">
-      <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
-      <div class="space-x-6">
-        <a href="index.html" class="nav-link text-gray-800 font-medium text-lg">Home</a>
-        <a href="mission-vision.html" class="nav-link text-gray-800 font-medium text-lg">Mission & Vision</a>
+      <h1 class="text-2xl font-extrabold text-center">Sacred Founders</h1>
+      <div class="space-x-4 text-sm">
+        <a href="#home" class="nav-link font-medium">Home</a>
+        <a href="#about" class="nav-link font-medium">About</a>
+        <a href="#membership" class="nav-link font-medium">Membership</a>
+        <a href="#mission" class="nav-link font-medium">Mission</a>
+        <a href="#vision" class="nav-link font-medium">Vision</a>
+        <a href="#retreat" class="nav-link font-medium">Retreat</a>
+        <a href="#story" class="nav-link font-medium">Story</a>
       </div>
     </div>
   </nav>
 
   <!-- Main Content -->
-  <main class="flex-grow py-16">
-    <div class="container mx-auto text-center px-4">
-      <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Mission & Vision</h2>
-      <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">[Your Mission Statement Here]</p>
-      <p class="text-lg text-gray-700 max-w-3xl mx-auto">[Your Vision Statement Here]</p>
-      <p class="text-md text-gray-500 italic">*Placeholder: Add your mission and vision to inspire your community.</p>
-    </div>
+  <main class="flex-grow">
+    <!-- Hero Section -->
+    <section id="home" class="hero py-16">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-4xl font-extrabold mb-6">Sacred Founders is a private, vetted community for founders, entrepreneurs, CEOs and spiritual seekers.</h2>
+        <p class="text-xl mb-8">Join and lets connect you to the source.</p>
+        <a href="#apply" class="inline-block bg-[#161616] text-white font-semibold py-3 px-8 rounded hover:bg-[#dafc67] hover:text-[#161616] transition">Apply Now</a>
+      </div>
+    </section>
+
+    <!-- About Us Section -->
+    <section id="about" class="py-16">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">About Us</h2>
+        <p class="text-xl mb-4">It’s actually just me right now starting this as a hobby project.</p>
+        <p class="text-xl mb-4">I have 17 years of experience with plant medicines and spirituality.</p>
+        <p class="text-xl mb-4">I’ve lived with 100 year old shamans in the Brazilian rainforest, finished spiritual initiations, climbed Chinggis Khans’s mountain to pursue my roots and experienced enlightenment.</p>
+        <p class="text-xl">I want to grow a network of like-minded people and share my life, my family, our values and wisdom of a harmonious future.</p>
+      </div>
+    </section>
+
+    <!-- Explore Membership Section -->
+    <section id="membership" class="py-16 bg-gray-50">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">Explore Membership</h2>
+        <p class="text-xl mb-4">Every Sacred Founders applicant is interviewed, vetted, and researched before they’re invited. We accept fewer than 8% of applicants and our number one priority is ensuring the quality and integrity of our community.</p>
+        <p class="text-xl mb-4">The price for a yearly membership is €369. I’ll probably ramp it the price into the thousands in the future. Since it’s a new project I’ll keep it at €369 now.</p>
+        <p class="text-xl mt-4"><a href="apply-now.html" class="text-[#dafc67] hover:underline">Apply here</a>.</p>
+      </div>
+    </section>
+
+    <!-- Mission Section -->
+    <section id="mission" class="py-16">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">Mission</h2>
+        <p class="text-xl mb-4">My mission is to connect you to the source.</p>
+        <p class="text-xl mb-4">The source of earth, the sun, the universe and your heart.</p>
+        <p class="text-xl">I’ve never wanted to make money with this. I think it’s been more of a hobby of mine.</p>
+      </div>
+    </section>
+
+    <!-- Vision Section -->
+    <section id="vision" class="py-16 bg-gray-50">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">Vision</h2>
+        <p class="text-xl mb-4">Have our own retreat / resort center where we mix natural living with vibrant activity like surfing and yoga, MMA and calisthenics.</p>
+        <p class="text-xl mb-4">Organize ceremonies with cannabis and mushrooms tobacco and sananga root that we’ve grown ourselves.</p>
+        <p class="text-xl">Guide other fellow entrepreneurs around campfires and hold space for healing and clearing.</p>
+      </div>
+    </section>
+
+    <!-- Retreat / Ceremony Section -->
+    <section id="retreat" class="py-16">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">Retreat / Ceremony</h2>
+        <p class="text-xl mb-4">As of now my ceremonial space is hidden in the forests of Hiiumaa. I go there to meditate and play music on my land around my campfire.</p>
+        <p class="text-xl mb-4">If you want to spend 4 days with me and my family you can apply here.</p>
+        <p class="text-xl mb-4">The price tag is €1000-2000 for this time. Depending on time and logistics. I’m not really selling this but would be an interesting experience.</p>
+        <p class="text-xl mt-4"><a href="apply-now.html" class="text-[#dafc67] hover:underline">Apply here</a>.</p>
+      </div>
+    </section>
+
+    <!-- Read My Story Section -->
+    <section id="story" class="py-16 bg-gray-50">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-3xl font-extrabold mb-6">Read My Story</h2>
+        <p class="text-xl mb-4">Sign up to newsletter and receive your free copy of my journey.</p>
+        <p class="text-xl mb-4">The point of this is to get to know me.</p>
+        <p class="text-xl mt-4"><a href="get-the-book.html" class="text-[#dafc67] hover:underline">Sign up here</a>.</p>
+      </div>
+    </section>
   </main>
 
   <!-- Footer -->
-  <footer class="bg-gray-900 text-white p-6">
+  <footer class="bg-[#161616] text-white p-6">
     <div class="container mx-auto text-center">
-      <p>&copy; 2025 Sacred Founders. All rights reserved.</p>
-      <p class="mt-2">
+      <p class="text-xl">&copy; 2025 Sacred Founders. All rights reserved.</p>
+      <p class="text-xl mt-2">
         <a href="mailto:contact@sacredfounders.com" class="hover:text-[#dafc67]">Contact Us</a> | 
         <a href="https://x.com/sacredfounders" class="hover:text-[#dafc67]">Follow on X</a>
       </p>
