@@ -3,43 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sacred Founders</title>
+  <title>Sacred Founders - Spiritual Community for Visionary Founders</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
       background-color: #faf9f5; /* Spring Wood from Founder OS */
     }
-    .hero {
-      background: linear-gradient(to bottom, #dafc67, #faf9f5); /* Canary-inspired gradient */
-    }
     .nav-link:hover {
       color: #dafc67; /* Canary yellow hover */
-    }
-    .section {
-      display: none;
     }
     h1, h2 {
       font-weight: 800;
       letter-spacing: -0.025em;
     }
+    .hero {
+      background: linear-gradient(to bottom, #dafc67, #faf9f5); /* Canary-inspired gradient */
+    }
+    /* Smooth scrolling for anchor links */
+    html {
+      scroll-behavior: smooth;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
   <!-- Navigation -->
-  <<nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
-  <div class="container mx-auto flex justify-between items-center">
-    <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
-    <div class="space-x-6">
-      <a href="index.html" class="nav-link text-gray-800 font-medium text-lg">Home</a>
-      <a href="mission-vision.html" class="nav-link text-gray-800 font-medium text-lg">Mission & Vision</a>
+  <nav class="bg-white shadow-sm p-4 sticky top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-3xl font-extrabold text-gray-900">Sacred Founders</h1>
+      <div class="space-x-6">
+        <a href="#home" class="nav-link text-gray-800 font-medium text-lg">Home</a>
+        <a href="#mission" class="nav-link text-gray-800 font-medium text-lg">Mission & Vision</a>
+        <a href="#about" class="nav-link text-gray-800 font-medium text-lg">About Us</a>
+        <a href="#retreat" class="nav-link text-gray-800 font-medium text-lg">Retreat & Ceremony</a>
+        <a href="#apply" class="nav-link text-gray-800 font-medium text-lg">Apply Now</a>
+      </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
   <!-- Main Content -->
   <main class="flex-grow">
     <!-- Hero Section -->
+    <section id="home" class="hero py-16">
       <div class="container mx-auto text-center px-4">
         <h2 class="text-5xl font-extrabold text-gray-900 mb-6">Sacred Founders is a private, vetted community for founders, entrepreneurs, CEOs and spiritual seekers.</h2>
         <p class="text-xl text-gray-700 max-w-2xl mx-auto mb-8">Join and lets connect you to the source.</p>
@@ -48,12 +53,41 @@
     </section>
 
     <!-- Mission & Vision Section -->
-    <section id="mission" class="section py-16">
+    <section id="mission" class="py-16">
       <div class="container mx-auto text-center px-4">
         <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Mission & Vision</h2>
         <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">[Your Mission Statement Here]</p>
         <p class="text-lg text-gray-700 max-w-3xl mx-auto">[Your Vision Statement Here]</p>
         <p class="text-md text-gray-500 italic">*Placeholder: Add your mission and vision to inspire your community.</p>
+      </div>
+    </section>
+
+    <!-- About Us Section -->
+    <section id="about" class="py-16 bg-gray-50">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-6">About Us</h2>
+        <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">[Describe the Sacred Founders community: who we are, our values, and why we exist.]</p>
+        <p class="text-md text-gray-500 italic">*Placeholder: Share your story to connect with spiritual entrepreneurs.</p>
+      </div>
+    </section>
+
+    <!-- Retreat & Ceremony Section -->
+    <section id="retreat" class="py-16">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Retreat & Ceremony</h2>
+        <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">[Detail your upcoming retreats, ceremonies, or spiritual events for founders.]</p>
+        <p class="text-md text-gray-500 italic">*Placeholder: Highlight transformative experiences for your community.</p>
+      </div>
+    </section>
+
+    <!-- Apply Now Section -->
+    <section id="apply" class="py-16 bg-gray-50">
+      <div class="container mx-auto text-center px-4">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Apply Now</h2>
+        <p class="text-lg text-gray-700 max-w-3xl mx-auto mb-6">Ready to join Sacred Founders? Submit your application to become part of our vetted community of spiritual entrepreneurs.</p>
+        <p class="text-md text-gray-700 max-w-3xl mx-auto mb-6">[Add your application process details or form link here.]</p>
+        <p class="text-md text-gray-500 italic">*Placeholder: Include your application form or contact details.</p>
+        <a href="#apply" class="inline-block bg-gray-900 text-white font-semibold py-3 px-8 rounded-full hover:bg-[#dafc67] hover:text-gray-900 transition">Apply Now</a>
       </div>
     </section>
   </main>
@@ -68,6 +102,5 @@
       </p>
     </div>
   </footer>
-
 </body>
 </html>
