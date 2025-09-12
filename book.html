@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Pafka's Journey</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .signup-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h2 {
+            color: #333;
+        }
+        p {
+            color: #666;
+        }
+        .gumroad-subscribe-form {
+            margin-top: 20px;
+        }
+        .privacy-link {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <h2>Get Pafka's Journey</h2>
+        <p>Sign up for our newsletter to receive your free ebook download link!</p>
+        <div class="gumroad-subscribe-form">
+            <script src="https://gumroad.com/js/gumroad.js"></script>
+            <a href="https://pafka.gumroad.com/subscribe" class="gumroad-button">Subscribe</a>
+        </div>
+        <a href="https://sacredfounders.com/privacy-policy" class="privacy-link">Privacy Policy</a>
+    </div>
+    <script>
+        // Redirect to Gumroad product page after successful signup
+        document.addEventListener('gumroad:subscribe:success', function() {
+            window.location.href = 'https://pafka.gumroad.com/l/clazso';
+        });
+    </script>
+</body>
+</html>
