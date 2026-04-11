@@ -1,366 +1,142 @@
   <!DOCTYPE html>
-  <html lang="en">
+
+  <html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sacred Founders</title>
+    <link rel="stylesheet" type="text/css" href="screen.css">
+    <title>SACRED FOUNDERS</title>
+
+    <meta name="viewport" content="width=device-width">
+    <meta charset="UTF-8">
+
     <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-      :root {
-        --bg: #0e0d0b;
-        --surface: #161410;
-        --border: #2a2720;
-        --text: #e8e0d0;
-        --muted: #7a7060;
-        --accent: #c8a96e;
-        --accent-dim: #8a7248;
-      }
-
-      html {
-        font-size: 18px;
-        scroll-behavior: smooth;
-      }
-
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: 'Georgia', serif;
-        line-height: 1.7;
-        min-height: 100vh;
-      }
-
-      .container {
-        max-width: 680px;
-        margin: 0 auto;
-        padding: 80px 24px 120px;
-      }
-
-      .mark {
-        font-size: 0.75rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: var(--accent);
-        margin-bottom: 48px;
-        display: block;
-      }
-
-      h1 {
-        font-size: 2.4rem;
-        line-height: 1.2;
-        font-weight: normal;
-        margin-bottom: 32px;
-        color: var(--text);
-      }
-
-      h1 em {
-        font-style: italic;
-        color: var(--accent);
-      }
-
-      .lead {
-        font-size: 1.15rem;
-        color: #c8bfaf;
-        margin-bottom: 40px;
-        line-height: 1.8;
-      }
-
-      .divider {
-        border: none;
-        border-top: 1px solid var(--border);
-        margin: 56px 0;
-      }
-
-      h2 {
-        font-size: 0.75rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--muted);
-        font-weight: normal;
-        margin-bottom: 24px;
-      }
-
-      p {
-        margin-bottom: 20px;
-        color: #c0b8a8;
-      }
-
-      p:last-child { margin-bottom: 0; }
+      html { scroll-behavior: smooth; }
 
       .offer-box {
-        border: 1px solid var(--border);
-        background: var(--surface);
-        padding: 40px;
-        margin: 32px 0;
+        border: 1px solid #d6d4c8;
+        background: #faf9f2;
+        padding: 32px;
+        margin: 24px 0;
       }
 
-      .offer-box .label {
-        font-size: 0.7rem;
-        letter-spacing: 0.2em;
+      .offer-box .offer-label {
+        font-size: 13px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: var(--muted);
+        color: #999892;
         display: block;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
       .offer-box .offer-title {
-        font-size: 1.3rem;
-        color: var(--text);
+        font-size: 24px;
         font-weight: normal;
-        margin-bottom: 8px;
-      }
-
-      .offer-box .price {
-        font-size: 2rem;
-        color: var(--accent);
+        color: #484848;
         margin-bottom: 4px;
       }
 
-      .offer-box .price-note {
-        font-size: 0.85rem;
-        color: var(--muted);
-        margin-bottom: 32px;
+      .offer-box .offer-price {
+        font-size: 28px;
+        color: #C30C0C;
+        margin-bottom: 2px;
+      }
+
+      .offer-box .offer-note {
+        font-size: 14px;
+        color: #999892;
+        margin-bottom: 20px;
       }
 
       .offer-box ul {
-        list-style: none;
-        margin-bottom: 32px;
+        margin-bottom: 20px;
       }
 
       .offer-box ul li {
-        color: #c0b8a8;
-        padding: 10px 0;
-        border-bottom: 1px solid var(--border);
-        font-size: 0.95rem;
-        display: flex;
-        gap: 12px;
+        margin: 0 0 6px 20px;
+        color: #484848;
+        font-size: 16px;
       }
 
-      .offer-box ul li:last-child {
-        border-bottom: none;
-      }
-
-      .offer-box ul li::before {
-        content: '—';
-        color: var(--accent-dim);
-        flex-shrink: 0;
-      }
-
-      .spots {
-        font-size: 0.8rem;
-        color: var(--accent);
-        letter-spacing: 0.05em;
-      }
-
-      .offer-box .apply-link {
-        display: inline-block;
-        margin-top: 24px;
-        color: var(--accent);
-        text-decoration: none;
-        font-size: 0.85rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        border-bottom: 1px solid var(--accent-dim);
-        padding-bottom: 2px;
-        transition: color 0.2s;
-      }
-
-      .offer-box .apply-link:hover { color: #d4b97e; }
-
-      .for-who ul {
-        list-style: none;
-      }
-
-      .for-who ul li {
-        padding: 8px 0;
-        color: #c0b8a8;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        gap: 12px;
-      }
-
-      .for-who ul li::before {
-        content: '→';
-        color: var(--accent-dim);
-        flex-shrink: 0;
-      }
-
-      .not-for {
-        background: #0b0a08;
-        border-left: 2px solid var(--border);
-        padding: 24px 28px;
-        margin: 32px 0;
-      }
-
-      .not-for p {
-        font-size: 0.9rem;
-        color: var(--muted);
-        margin-bottom: 8px;
-      }
-
-      .not-for p:last-child { margin-bottom: 0; }
-
-      .cta-btn {
-        display: inline-block;
-        background: var(--accent);
-        color: #0e0d0b;
-        text-decoration: none;
-        padding: 16px 40px;
-        font-family: inherit;
-        font-size: 0.9rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        transition: background 0.2s;
-      }
-
-      .cta-btn:hover { background: #d4b97e; }
-
-      .footer {
-        margin-top: 96px;
-        padding-top: 32px;
-        border-top: 1px solid var(--border);
-        font-size: 0.8rem;
-        color: var(--muted);
-        text-align: center;
-      }
-
-      @media (max-width: 600px) {
-        html { font-size: 16px; }
-        h1 { font-size: 1.9rem; }
-        .offer-box { padding: 28px 20px; }
-        .container { padding: 48px 20px 80px; }
+      .offer-spots {
+        font-size: 13px;
+        color: #C30C0C;
       }
     </style>
   </head>
+
   <body>
-    <div class="container">
+    <header>
+      <h1>SACRED FOUNDERS</h1>
 
-      <span class="mark">Sacred Founders</span>
+      <a href="images/Alan_Pafka.png"><img src="images/Alan_Pafka.png" width="150" height="150" class="avatar" align="left"></a>
 
-      <h1>Most founders are technically strong.<br><em>Almost none of them are energetically
-  aligned.</em></h1>
+      <p class="header">It's all energy and vibration, Bro ⚡️</p>
+      <p>Most founders are technically strong but spiritually misaligned.</p>
+    </header>
 
-      <p class="lead">
-        You've built the company. Done the inner work. Read the books. And still — something
-  is off.
-        The decisions are murky. The relationships are draining. The vision is clear in your
-  head but
-        you can't transmit it. You're leaking energy everywhere and pretending it isn't
-  showing up in the business.
-        <br><br>
-        It is.
-      </p>
+    <a href="#offers">Work With Me!</a>
 
-      <a class="cta-btn" href="#offers">Work With Me</a>
+    <p></p>
+    <article>
+      <p>Sacred Founders is a first draft of my life's work and dream life.</p>
 
-      <hr class="divider" />
+      <p>I'm a modern day shaman.</p>
 
-      <h2>What this is</h2>
+      <p>I don't say it boastfully. I'm writing it to direct the reader to what I'm trying to
+      imply. It's all soul and energy on planet earth for us, people.</p>
 
-      <p>
-        I work with a small number of founders on energetic alignment —
-        the invisible architecture underneath every decision, relationship, and direction.
-      </p>
-      <p>
-        This is not coaching. It is not therapy. It is not a mastermind.
-        It's closer to what a shaman does: read what's actually happening beneath the surface,
-        and help you move from disharmony back into flow.
-      </p>
-      <p>
-        We work with plant medicine where appropriate. We work with energy, with
-  truth-telling,
-        with music, with silence. I meet you where you are.
-      </p>
+      <p>Many people in the modern day are not connected to the source. The earth, the sun, the soul, plants, etc. Their heart and the
+      universe. They're disharmonized from the universe. Shamans heal and align you. I can do
+      that.</p>
 
-      <hr class="divider" />
+      <p>So my dream is to actually do that. To live that lifestyle. To educate on energy and
+      keeping the vibe. I'd be a walking prayer, lol. But exciting. On my land, with my family,
+      with the plants I've grown and blessed.</p>
 
-      <div class="for-who">
-        <h2>Who this is for</h2>
+      <p>I feel that my mission is to hold the pure vibe and guide souls back to their hearts. Spiritual alchemy and transformation.</p>
+
+      <a href="#offers">Work With Me!</a>
+
+      <p></p>
+
+      <h2>Pictures</h2>
+      <p><img src="images/vision.jpg" width="540" alt="Vision"></p>
+      <p><img src="images/Alan_Pafka.png" width="540" alt="Your Shaman"></p>
+
+    </article>
+
+    <section id="offers">
+      <h2>Work With Me</h2>
+
+      <div class="offer-box">
+        <span class="offer-label">Start here</span>
+        <div class="offer-title">1-on-1 Session</div>
+        <div class="offer-price">€500</div>
+        <div class="offer-note">Single 90-minute session</div>
         <ul>
-          <li>Founders who feel like something is stuck and they can't name it</li>
-          <li>Builders who have done therapy and want to go deeper</li>
-          <li>People drawn to plant medicine but wanting a guide they trust</li>
-          <li>Anyone who knows that energy is real and wants to work with someone who treats
-  it that way</li>
+          <li>Deep dive into where your energy is stuck</li>
+          <li>Honest read of what's actually happening</li>
+          <li>Clear next steps — no fluff</li>
         </ul>
+        <a href="mailto:alan@sacredfounders.com?subject=1on1 Session">Book a session →</a>
       </div>
 
-      <div class="not-for">
-        <p>This is not for people who want accountability coaching or business strategy.</p>
-        <p>It is not for people who are in active crisis or need clinical support.</p>
-        <p>It is not for the intellectually curious who aren't ready to actually change.</p>
+      <div class="offer-box">
+        <span class="offer-label">Full engagement</span>
+        <div class="offer-title">3-Month Retainer</div>
+        <div class="offer-price">€10,000 / month</div>
+        <div class="offer-note">3-month minimum commitment</div>
+        <ul>
+          <li>Two deep sessions per month (2–3 hours each)</li>
+          <li>Async voice/text access between sessions</li>
+          <li>Energy and alignment diagnostics at intake</li>
+          <li>Plant medicine integration support (if applicable)</li>
+          <li>Ruthless honesty. No performance required.</li>
+        </ul>
+        <div class="offer-spots">3 spots available</div>
+        <p><a href="mailto:alan@sacredfounders.com?subject=Retainer Application">Apply →</a></p>
       </div>
 
-      <hr class="divider" />
+    </section>
 
-      <h2>About me</h2>
-
-      <p>
-        I'm a builder and a shaman — in that order, some days, and reversed on others.
-        I've spent years at the intersection of technology, ceremony, and inner work.
-        I use cannabis as a daily medicine and have led mushroom circles for founders and
-  close circles.
-      </p>
-      <p>
-        I am not a guru. I don't have a brand or a following or a polished backstory.
-        What I have is clarity, directness, and a genuine ability to see where people are
-  stuck
-        and help move the thing that's blocking them.
-      </p>
-      <p>
-        I built this offer because I kept doing this work informally and it kept working.
-        So now it's formal.
-      </p>
-
-      <hr class="divider" />
-
-      <div id="offers">
-        <h2>Work With Me</h2>
-
-        <div class="offer-box">
-          <span class="label">Start here</span>
-          <div class="offer-title">1-on-1 Session</div>
-          <div class="price">€500</div>
-          <div class="price-note">Single 90-minute session</div>
-          <ul>
-            <li>Deep dive into where your energy is stuck</li>
-            <li>Honest read of what's actually happening</li>
-            <li>Clear next steps — no fluff</li>
-          </ul>
-          <a class="apply-link" href="mailto:alan@sacredfounders.com?subject=1on1
-  Session">Book a session →</a>
-        </div>
-
-        <div class="offer-box">
-          <span class="label">Full engagement</span>
-          <div class="offer-title">3-Month Retainer</div>
-          <div class="price">€10,000 / month</div>
-          <div class="price-note">3-month minimum commitment</div>
-          <ul>
-            <li>Two deep sessions per month (2–3 hours each)</li>
-            <li>Async voice/text access between sessions</li>
-            <li>Energy and alignment diagnostics at intake</li>
-            <li>Plant medicine integration support (if applicable)</li>
-            <li>Ruthless honesty. No performance required.</li>
-          </ul>
-          <div class="spots">3 spots available</div>
-          <a class="apply-link" href="mailto:alan@sacredfounders.com?subject=Retainer
-  Application">Apply →</a>
-        </div>
-
-      </div>
-
-      <div class="footer">
-        sacredfounders.com &nbsp;·&nbsp; alan@sacredfounders.com
-      </div>
-
-    </div>
   </body>
   </html>
-
-  Two things to update before you paste it into GitHub:
-  1. €500 for the 1on1 — change if that's not right
-  2. Email addresses — I used alan@sacredfounders.com, update to whatever you actually have
-
-  Paste this into your sacredfounders repo as index.html, then enable GitHub Pages (repo
-  Settings → Pages → deploy from main branch root).
