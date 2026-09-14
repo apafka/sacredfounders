@@ -2,19 +2,20 @@ import * as Phaser from "phaser";
 import { plotReady } from "@/lib/crops";
 import { CROP_META } from "@/lib/types";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
-import { bindClickToMove, label, paintTiles } from "../draw-map";
+import { bindClickToMove, createGround, label } from "../draw-map";
 import {
   HEARTH_PLOTS,
   HEARTH_SPOTS,
   HEARTH_TILES,
   TILE,
   cropTexture,
+  isDoorTile,
   isWalkable,
   tileAt,
   tileFromWorld,
   worldCenter,
 } from "../layout";
-import { stepToward } from "../move";
+import { clampToRect, slide, stepToward } from "../move";
 
 const WALK_SPEED = 120;
 const REACH = 22;
@@ -32,6 +33,7 @@ export class HearthScene extends Phaser.Scene {
   private dest = { x: 0, y: 0 };
   private job: Job | null = null;
   private moving = false;
+  private usedDoor = false;
   private plotSprites = new Map<number, Phaser.GameObjects.Image>();
   private cropSprites = new Map<number, Phaser.GameObjects.Image>();
 
@@ -44,7 +46,7 @@ export class HearthScene extends Phaser.Scene {
   }
 
   create() {
-    paintTiles(this, HEARTH_TILES);
+    createGround(this, HEARTH_TILES);
 
     for (const plot of HEARTH_PLOTS) {
       const { x, y } = worldCenter(plot.col, plot.row);
@@ -166,7 +168,13 @@ export class HearthScene extends Phaser.Scene {
       bridge.emit({ type: "hint", text: "Old Bren waits with a quiet scale." });
       return;
     }
-    bridge.emit({ type: "door", scene: "valley" });
+    this.openValleyDoor();
+  }
+
+  private openValleyDoor() {
+    if (this.usedDoor || this.bridge().isBusy()) return;
+    this.usedDoor = true;
+    this.bridge().emit({ type: "door", scene: "valley" });
   }
 
   private syncCrops() {
@@ -186,19 +194,24 @@ export class HearthScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     this.syncCrops();
-    if (!this.moving) return;
-    const next = stepToward(this.pilgrim.x, this.pilgrim.y, this.dest.x, this.dest.y, WALK_SPEED, delta / 1000, REACH);
-    const tile = tileFromWorld(next.x, next.y);
-    if (!isWalkable(tileAt(HEARTH_TILES, tile.col, tile.row))) {
-      this.moving = false;
-      this.marker.setVisible(false);
-      return;
+    if (this.moving) {
+      const prevX = this.pilgrim.x;
+      const prevY = this.pilgrim.y;
+      const next = stepToward(prevX, prevY, this.dest.x, this.dest.y, WALK_SPEED, delta / 1000, REACH);
+      const slid = slide(HEARTH_TILES, prevX, prevY, next.x, next.y);
+      this.pilgrim.setPosition(slid.x, slid.y).setDepth(10 + slid.y);
+      if (next.arrived) {
+        this.moving = false;
+        this.marker.setVisible(false);
+        this.doJob();
+      } else if (slid.x === prevX && slid.y === prevY) {
+        this.moving = false;
+        this.marker.setVisible(false);
+      }
     }
-    this.pilgrim.setPosition(next.x, next.y).setDepth(10 + next.y);
-    if (next.arrived) {
-      this.moving = false;
-      this.marker.setVisible(false);
-      this.doJob();
+    const tile = tileFromWorld(this.pilgrim.x, this.pilgrim.y);
+    if (isDoorTile(tileAt(HEARTH_TILES, tile.col, tile.row))) {
+      this.openValleyDoor();
     }
   }
 }

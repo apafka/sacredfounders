@@ -1,15 +1,23 @@
 import * as Phaser from "phaser";
-import { TILE } from "./layout";
+import { TILE, TILE_INDEX, tilesToData } from "./layout";
 
-export function paintTiles(scene: Phaser.Scene, tiles: readonly string[]) {
-  for (let row = 0; row < tiles.length; row++) {
-    const line = tiles[row];
-    for (let col = 0; col < line.length; col++) {
-      const ch = line[col];
-      const key = ch === "#" ? "tile-wall" : ch === "~" ? "tile-creek" : ch === "," ? "tile-grass" : "tile-floor";
-      scene.add.image(col * TILE + TILE / 2, row * TILE + TILE / 2, key).setDepth(0);
-    }
+export function createGround(scene: Phaser.Scene, tiles: readonly string[]) {
+  const map = scene.make.tilemap({
+    data: tilesToData(tiles),
+    tileWidth: TILE,
+    tileHeight: TILE,
+  });
+  const tileset = map.addTilesetImage("world-tiles", "world-tiles", TILE, TILE);
+  if (!tileset) {
+    throw new Error("world-tiles tileset missing");
   }
+  const layer = map.createLayer(0, tileset, 0, 0);
+  if (!layer) {
+    throw new Error("ground layer missing");
+  }
+  layer.setDepth(0);
+  layer.setCollision(TILE_INDEX.wall);
+  return { map, layer };
 }
 
 export function label(scene: Phaser.Scene, x: number, y: number, text: string) {
@@ -24,6 +32,21 @@ export function label(scene: Phaser.Scene, x: number, y: number, text: string) {
     .setOrigin(0.5, 1)
     .setDepth(4)
     .setResolution(2);
+}
+
+export function paintHpBar(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  ratio: number,
+  width = 28,
+) {
+  const r = Math.max(0, Math.min(1, ratio));
+  g.clear();
+  g.fillStyle(0x2c241c, 0.85);
+  g.fillRect(x - width / 2, y, width, 5);
+  g.fillStyle(r > 0.34 ? 0x6d7a4e : 0xb33a2b, 1);
+  g.fillRect(x - width / 2 + 1, y + 1, Math.max(0, (width - 2) * r), 3);
 }
 
 export function bindClickToMove(

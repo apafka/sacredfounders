@@ -37,6 +37,10 @@ export function decodePlayer(token: string | undefined): PlayerState | null {
       fishSkill: parsed.fishSkill ?? 0,
       cookSkill: parsed.cookSkill ?? 0,
       lastFishAt: parsed.lastFishAt ?? 0,
+      xp: parsed.xp ?? 0,
+      level: parsed.level ?? 1,
+      hasSword: parsed.hasSword ?? false,
+      strikeDamage: parsed.strikeDamage ?? (parsed.hasSword ? 2 : 1),
       basket: {
         grain: parsed.basket.grain ?? 0,
         root: parsed.basket.root ?? 0,

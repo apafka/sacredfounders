@@ -1,25 +1,47 @@
 import * as Phaser from "phaser";
+import { ELITE_HP, PACK_HP, PLAYER_MAX_HP, RESPAWN_MS } from "@/lib/combat";
 import { BRIDGE_KEY, pullValleyStrike, type WorldBridge } from "../bridge";
-import { bindClickToMove, label, paintTiles } from "../draw-map";
-import { TILE, VALLEY_SPOTS, VALLEY_TILES, isWalkable, tileAt, tileFromWorld, worldCenter } from "../layout";
-import { clampToRect, stepToward } from "../move";
-import { PLAYER_SPEED, tickWolf, tryStrike, type Actor, type Wolf } from "../wolf-ai";
+import { bindClickToMove, createGround, label, paintHpBar } from "../draw-map";
+import {
+  TILE,
+  VALLEY_ELITE,
+  VALLEY_SPOTS,
+  VALLEY_TILES,
+  VALLEY_WOLF_PADS,
+  isDoorTile,
+  isWalkable,
+  tileAt,
+  tileFromWorld,
+  worldCenter,
+} from "../layout";
+import { clampToRect, slide, stepToward } from "../move";
+import {
+  PLAYER_SPEED,
+  nearestLiving,
+  tickPack,
+  tryStrike,
+  type Actor,
+  type PackWolf,
+} from "../wolf-ai";
 
 const REACH = 10;
 const MARGIN = TILE + 8;
 
 export class ValleyScene extends Phaser.Scene {
   private pilgrim!: Phaser.GameObjects.Image;
-  private wolfSprite!: Phaser.GameObjects.Image;
   private marker!: Phaser.GameObjects.Image;
   private hpText!: Phaser.GameObjects.Text;
+  private playerBar!: Phaser.GameObjects.Graphics;
   private dest = { x: 0, y: 0 };
   private moving = false;
-  private body: Actor = { x: 0, y: 0, hp: 3 };
-  private wolf: Wolf = { x: 0, y: 0, hp: 3, telegraph: 0, lunging: 0 };
-  private won = false;
+  private body: Actor = { x: 0, y: 0, hp: PLAYER_MAX_HP };
+  private beasts: PackWolf[] = [];
+  private sprites: Phaser.GameObjects.Image[] = [];
+  private bars: Phaser.GameObjects.Graphics[] = [];
   private pendingStrike = false;
+  private pendingId: number | null = null;
   private lastHud = "";
+  private usedDoor = false;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
 
   constructor() {
@@ -31,25 +53,69 @@ export class ValleyScene extends Phaser.Scene {
   }
 
   create() {
-    paintTiles(this, VALLEY_TILES);
+    createGround(this, VALLEY_TILES);
     const doorPos = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
     this.add.image(doorPos.x, doorPos.y, "sprite-door").setDepth(3);
     label(this, doorPos.x, doorPos.y - 20, "Door");
 
     const spawn = worldCenter(VALLEY_SPOTS.spawn.col, VALLEY_SPOTS.spawn.row);
-    const wolfPos = worldCenter(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
-    this.body = { x: spawn.x, y: spawn.y, hp: 3 };
-    this.wolf = { x: wolfPos.x, y: wolfPos.y, hp: 3, telegraph: 0, lunging: 0 };
+    this.body = { x: spawn.x, y: spawn.y, hp: PLAYER_MAX_HP };
     this.dest = { ...spawn };
-    this.won = false;
+    this.pendingStrike = false;
+    this.pendingId = null;
+    this.usedDoor = false;
+
+    this.beasts = [
+      ...VALLEY_WOLF_PADS.map((pad, i) => {
+        const pos = worldCenter(pad.col, pad.row);
+        return {
+          id: i,
+          kind: "pack" as const,
+          x: pos.x,
+          y: pos.y,
+          hp: PACK_HP,
+          maxHp: PACK_HP,
+          telegraph: 0,
+          lunging: 0,
+          spawnX: pos.x,
+          spawnY: pos.y,
+          respawnIn: 0,
+        };
+      }),
+      (() => {
+        const pos = worldCenter(VALLEY_ELITE.col, VALLEY_ELITE.row);
+        return {
+          id: VALLEY_WOLF_PADS.length,
+          kind: "elite" as const,
+          x: pos.x,
+          y: pos.y,
+          hp: ELITE_HP,
+          maxHp: ELITE_HP,
+          telegraph: 0,
+          lunging: 0,
+          spawnX: pos.x,
+          spawnY: pos.y,
+          respawnIn: 0,
+        };
+      })(),
+    ];
+
+    const elitePos = worldCenter(VALLEY_ELITE.col, VALLEY_ELITE.row);
+    label(this, elitePos.x, elitePos.y - 22, "Dire wolf");
 
     this.pilgrim = this.add.image(spawn.x, spawn.y, "sprite-pilgrim").setDepth(10);
-    this.wolfSprite = this.add.image(wolfPos.x, wolfPos.y, "sprite-wolf").setDepth(10);
+    this.playerBar = this.add.graphics().setDepth(16);
+    this.sprites = this.beasts.map((beast) => {
+      const sprite = this.add.image(beast.x, beast.y, "sprite-wolf").setDepth(10);
+      if (beast.kind === "elite") sprite.setScale(1.45).setTint(0x3a1c12);
+      return sprite;
+    });
+    this.bars = this.beasts.map(() => this.add.graphics().setDepth(16));
     this.marker = this.add.image(spawn.x, spawn.y, "sprite-marker").setDepth(9).setVisible(false);
     this.hpText = this.add
-      .text(TILE, TILE / 2, "You 3 · Wolf 3", {
+      .text(TILE, TILE / 2, "", {
         fontFamily: "Georgia, serif",
-        fontSize: "12px",
+        fontSize: "11px",
         color: "#2c241c",
         backgroundColor: "#f3efe4",
         padding: { x: 6, y: 3 },
@@ -59,9 +125,9 @@ export class ValleyScene extends Phaser.Scene {
 
     this.bridge().emit({
       type: "hint",
-      text: "Tap to walk. Tap the wolf or Strike — you will close in. Dodge the red lunge.",
+      text: "Three wolves and a dire wolf. Tap to walk, Strike to hit. HP bars sit over each. They return after a breath.",
     });
-    this.bridge().emit({ type: "combat", you: 3, wolf: 3 });
+    this.publishHud();
 
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
@@ -82,14 +148,14 @@ export class ValleyScene extends Phaser.Scene {
   private onTap(x: number, y: number) {
     const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
     if (Math.hypot(x - door.x, y - door.y) < TILE) {
-      if (Math.hypot(this.body.x - door.x, this.body.y - door.y) < TILE * 1.2) {
-        this.bridge().emit({ type: "door", scene: "hearth" });
-        return;
-      }
       this.walkTo(door);
       return;
     }
-    if (this.wolf.hp > 0 && Math.hypot(x - this.wolf.x, y - this.wolf.y) < TILE * 1.4) {
+    const tapped = this.beasts.find(
+      (beast) => beast.hp > 0 && Math.hypot(x - beast.x, y - beast.y) < TILE * (beast.kind === "elite" ? 1.6 : 1.4),
+    );
+    if (tapped) {
+      this.pendingId = tapped.id;
       this.strike();
       return;
     }
@@ -105,23 +171,43 @@ export class ValleyScene extends Phaser.Scene {
     this.pilgrim.setFlipX(pos.x < this.body.x);
   }
 
+  private target(): PackWolf | null {
+    if (this.pendingId != null) {
+      const picked = this.beasts.find((beast) => beast.id === this.pendingId && beast.hp > 0);
+      if (picked) return picked;
+    }
+    return nearestLiving(this.body, this.beasts);
+  }
+
   private strike = () => {
-    const next = tryStrike(this.body, this.wolf);
+    const target = this.target();
+    const damage = this.bridge().getPlayer().strikeDamage ?? 1;
+    if (!target) return false;
+    const next = tryStrike(this.body, target, damage);
     if (next) {
       this.pendingStrike = false;
-      this.wolf = next;
-      if (this.wolf.hp <= 0 && !this.won) {
-        this.won = true;
-        this.wolfSprite.setVisible(false);
-        this.bridge().emit({ type: "wolf-loot" });
-        this.bridge().emit({ type: "hint", text: "The wolf is down. Coins are yours. The door still opens." });
+      this.pendingId = null;
+      const idx = this.beasts.findIndex((beast) => beast.id === target.id);
+      const died = next.hp <= 0 && target.hp > 0;
+      this.beasts[idx] = { ...this.beasts[idx], ...next, respawnIn: died ? RESPAWN_MS : 0 };
+      if (died) {
+        this.sprites[idx].setVisible(false);
+        this.bridge().emit({ type: "wolf-loot", kind: target.kind });
+        this.bridge().emit({
+          type: "hint",
+          text:
+            target.kind === "elite"
+              ? "The dire wolf falls. It will take the pad again."
+              : "A wolf falls. Another will take its pad.",
+        });
       }
       this.publishHud();
       return true;
     }
-    if (this.wolf.hp > 0 && this.body.hp > 0) {
+    if (this.body.hp > 0 && this.beasts.some((beast) => beast.hp > 0)) {
       this.pendingStrike = true;
-      this.walkTo({ x: this.wolf.x, y: this.wolf.y });
+      this.pendingId = target.id;
+      this.walkTo({ x: target.x, y: target.y });
       this.bridge().emit({ type: "hint", text: "Closing in to strike." });
     }
     return false;
@@ -129,23 +215,33 @@ export class ValleyScene extends Phaser.Scene {
 
   private publishHud() {
     const you = Math.max(0, this.body.hp);
-    const wolfHp = Math.max(0, this.wolf.hp);
+    const packLive = this.beasts.filter((beast) => beast.kind === "pack" && beast.hp > 0).length;
+    const elite = this.beasts.find((beast) => beast.kind === "elite");
+    const eliteHp = Math.max(0, elite?.hp ?? 0);
+    const player = this.bridge().getPlayer();
     const line =
       you <= 0
         ? "You fall. Use the door. The hearth still stands."
-        : this.won
-          ? `You ${you} · Wolf down`
-          : `You ${you} · Wolf ${wolfHp}${this.wolf.telegraph > 0 ? " · lunge coming" : ""}`;
+        : `You ${you} · Wolves ${packLive}/3 · Dire ${eliteHp} · Lv ${player.level} (${player.xp} xp)${player.hasSword ? " · Iron Blade" : ""}`;
     this.hpText.setText(line);
-    const key = `${you}:${wolfHp}:${this.won}:${you <= 0}`;
+    const key = `${you}:${packLive}:${eliteHp}:${player.xp}:${player.level}:${player.hasSword}`;
     if (key !== this.lastHud) {
       this.lastHud = key;
-      this.bridge().emit({ type: "combat", you, wolf: wolfHp });
+      this.bridge().emit({ type: "combat", you, wolf: packLive, elite: eliteHp, xp: player.xp, level: player.level });
     }
   }
 
-  private bounds(x: number, y: number) {
-    return clampToRect(x, y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8);
+  private playerStep(x: number, y: number) {
+    const clamped = clampToRect(x, y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8);
+    return slide(VALLEY_TILES, this.body.x, this.body.y, clamped.x, clamped.y);
+  }
+
+  private openHearthDoor() {
+    if (this.usedDoor || this.bridge().isBusy()) return;
+    const { col, row } = tileFromWorld(this.body.x, this.body.y);
+    if (!isDoorTile(tileAt(VALLEY_TILES, col, row))) return;
+    this.usedDoor = true;
+    this.bridge().emit({ type: "door", scene: "hearth" });
   }
 
   update(_time: number, delta: number) {
@@ -155,10 +251,11 @@ export class ValleyScene extends Phaser.Scene {
       this.strike();
     }
 
-    if (this.pendingStrike && this.wolf.hp > 0 && this.body.hp > 0) {
-      if (tryStrike(this.body, this.wolf)) this.strike();
+    const chase = this.target();
+    if (this.pendingStrike && chase && this.body.hp > 0) {
+      if (tryStrike(this.body, chase, this.bridge().getPlayer().strikeDamage ?? 1)) this.strike();
       else {
-        this.dest = { x: this.wolf.x, y: this.wolf.y };
+        this.dest = { x: chase.x, y: chase.y };
         this.moving = true;
       }
     }
@@ -173,43 +270,55 @@ export class ValleyScene extends Phaser.Scene {
     }
     if (ax !== 0 || ay !== 0) {
       this.pendingStrike = false;
+      this.pendingId = null;
       this.moving = false;
       this.marker.setVisible(false);
       const len = Math.hypot(ax, ay) || 1;
-      const next = this.bounds(this.body.x + (ax / len) * PLAYER_SPEED * dt, this.body.y + (ay / len) * PLAYER_SPEED * dt);
+      const next = this.playerStep(
+        this.body.x + (ax / len) * PLAYER_SPEED * dt,
+        this.body.y + (ay / len) * PLAYER_SPEED * dt,
+      );
       this.body.x = next.x;
       this.body.y = next.y;
       this.pilgrim.setFlipX(ax < 0);
     } else if (this.moving) {
       const stepped = stepToward(this.body.x, this.body.y, this.dest.x, this.dest.y, PLAYER_SPEED, dt, REACH);
-      const clamped = this.bounds(stepped.x, stepped.y);
+      const clamped = this.playerStep(stepped.x, stepped.y);
       this.body.x = clamped.x;
       this.body.y = clamped.y;
       if (stepped.arrived) {
         this.moving = false;
         this.marker.setVisible(false);
-        if (this.pendingStrike) {
-          this.strike();
-        } else {
-          const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
-          if (Math.hypot(this.body.x - door.x, this.body.y - door.y) < TILE) {
-            this.bridge().emit({ type: "door", scene: "hearth" });
-          }
-        }
+        if (this.pendingStrike) this.strike();
       }
     }
 
-    const ticked = tickWolf(this.body, this.wolf, dt);
-    this.body = { ...ticked.player, ...this.bounds(ticked.player.x, ticked.player.y) };
-    this.wolf = { ...ticked.wolf, ...this.bounds(ticked.wolf.x, ticked.wolf.y) };
+    const ticked = tickPack(this.body, this.beasts, dt);
+    this.body = { ...ticked.player, ...this.playerStep(ticked.player.x, ticked.player.y) };
+    this.beasts = ticked.wolves.map((beast) => ({
+      ...beast,
+      ...clampToRect(beast.x, beast.y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8),
+    }));
 
     this.pilgrim.setPosition(this.body.x, this.body.y).setDepth(10 + this.body.y);
-    if (this.wolf.hp > 0) {
-      this.wolfSprite.setPosition(this.wolf.x, this.wolf.y).setDepth(10 + this.wolf.y);
-      if (this.wolf.telegraph > 0 || this.wolf.lunging > 0) this.wolfSprite.setTint(0xb33a2b);
-      else this.wolfSprite.clearTint();
-    }
+    paintHpBar(this.playerBar, this.body.x, this.body.y - 18, this.body.hp / PLAYER_MAX_HP, 26);
 
+    this.beasts.forEach((beast, i) => {
+      const sprite = this.sprites[i];
+      const alive = beast.hp > 0;
+      sprite.setVisible(alive);
+      if (!alive) {
+        this.bars[i].clear();
+        return;
+      }
+      sprite.setPosition(beast.x, beast.y).setDepth(10 + beast.y);
+      if (beast.telegraph > 0 || beast.lunging > 0) sprite.setTint(0xb33a2b);
+      else if (beast.kind === "elite") sprite.setTint(0x3a1c12);
+      else sprite.clearTint();
+      paintHpBar(this.bars[i], beast.x, beast.y - (beast.kind === "elite" ? 22 : 16), beast.hp / beast.maxHp, beast.kind === "elite" ? 36 : 26);
+    });
+
+    this.openHearthDoor();
     this.publishHud();
   }
 }

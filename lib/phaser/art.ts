@@ -5,8 +5,11 @@
  * ------------------
  * 1. Drop PNGs in `public/game/art/` using the filenames below (32×32 tiles,
  *    16×20 pilgrim, 22×16 wolf — or any size; Phaser will display at TILE).
- * 2. Set `USE_ART_PACK = true`.
- * 3. BootScene will `load.image` these keys instead of drawing rectangles.
+ * 2. Ground tiles (`grass.png`, `path.png`, `floor.png`, `creek.png`,
+ *    `wall.png`, `door-tile.png`) are stitched into the Phaser tileset
+ *    `world-tiles` in that order. Keep them 32×32 and in that sequence.
+ * 3. Set `USE_ART_PACK = true`.
+ * 4. BootScene will `load.image` these keys instead of drawing rectangles.
  *
  * Do not change the *keys* (left column) without updating the scenes.
  */
@@ -16,10 +19,12 @@ export const ART_PACK_DIR = "/game/art";
 
 /** Phaser texture key → file under public/game/art/ */
 export const ART_PACK_FILES: Record<string, string> = {
-  "tile-floor": "floor.png",
-  "tile-wall": "wall.png",
-  "tile-creek": "creek.png",
   "tile-grass": "grass.png",
+  "tile-path": "path.png",
+  "tile-floor": "floor.png",
+  "tile-creek": "creek.png",
+  "tile-wall": "wall.png",
+  "tile-door": "door-tile.png",
   "tile-soil": "soil.png",
   "crop-grain-grow": "grain-grow.png",
   "crop-grain-ready": "grain-ready.png",
@@ -38,12 +43,16 @@ export const ART_PACK_FILES: Record<string, string> = {
 export const PLACEHOLDER_COLORS = {
   floor: 0xcbb892,
   floorEdge: 0xb39d74,
+  path: 0xd4c4a0,
+  pathEdge: 0xb8a47a,
   wall: 0x6b5344,
   wallEdge: 0x4a3a30,
   creek: 0x6a8a8a,
   creekEdge: 0x557070,
   grass: 0x8a9a6a,
   grassEdge: 0x6f7d54,
+  doorTile: 0x6a4a38,
+  doorTileEdge: 0x3d2a1c,
   soil: 0x8a6a4a,
   grainGrow: 0x9a8a4a,
   grainReady: 0xc4a35a,

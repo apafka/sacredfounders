@@ -5,38 +5,77 @@ export const TILE = 32;
 export const COLS = 20;
 export const ROWS = 14;
 
-export const HEARTH_TILES = [
+/**
+ * One world covering valley (north, rows 0–13) and hearth (south, rows 14–27).
+ *
+ *   , grass     = path     . hearth interior
+ *   ~ creek     # wall     D door (hearth ↔ valley)
+ *
+ * Each Phaser scene mounts its 20×14 slice as a Tilemap layer. Door tiles stay
+ * walkable; `/api/game` door still switches the pilgrim between scenes.
+ */
+export const WORLD_TILES = [
+  // --- valley (north) ---
+  "####################",
+  "#,,,,,,,,,,,,,,,,,,#",
+  "#,,,,,,,,,,,,====,,#",
+  "#,,,,,,,,,,,,====,,#",
+  "#,,,,,,,,,,,,====,,#",
+  "#,,,,,,,,,,,,,===,,#",
+  "#,,,,,,,,,,,,,===,,#",
+  "#,,,,,,,,,,,,,===,,#",
+  "#,,,,,,,,,,,,,===,,#",
+  "#,,===============,#",
+  "#,,==============,,#",
+  "#,,=============D,,#",
+  "#,,,,,,,,,,,,,,,,,,#",
+  "####################",
+  // --- hearth (south) ---
   "####################",
   "#~~~~~~~~~~~~~~~~~~#",
-  "#~~~~..........~~~~#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#..................#",
+  "#~~~~==========~~~~#",
+  "#...=========......#",
+  "#...=...=..........#",
+  "#...=...=.....=....#",
+  "#.......=..........#",
+  "#.........=........#",
+  "#..........=.......#",
+  "#...........=======#",
+  "#...============...#",
+  "#...============D..#",
   "#..................#",
   "####################",
 ] as const;
 
-export const VALLEY_TILES = [
-  "####################",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "#,,,,,,,,,,,,,,,,,,#",
-  "####################",
+export const VALLEY_TILES = WORLD_TILES.slice(0, ROWS);
+export const HEARTH_TILES = WORLD_TILES.slice(ROWS, ROWS * 2);
+
+/** Phaser tileset strip order (see BootScene / art.ts). */
+export const TILE_INDEX = {
+  grass: 0,
+  path: 1,
+  floor: 2,
+  creek: 3,
+  wall: 4,
+  door: 5,
+} as const;
+
+export const TILE_CHARS: Record<string, number> = {
+  ",": TILE_INDEX.grass,
+  "=": TILE_INDEX.path,
+  ".": TILE_INDEX.floor,
+  "~": TILE_INDEX.creek,
+  "#": TILE_INDEX.wall,
+  D: TILE_INDEX.door,
+};
+
+export const TILESET_KEYS = [
+  "tile-grass",
+  "tile-path",
+  "tile-floor",
+  "tile-creek",
+  "tile-wall",
+  "tile-door",
 ] as const;
 
 export type Spot = { col: number; row: number };
@@ -64,12 +103,30 @@ export const VALLEY_SPOTS = {
   door: { col: 16, row: 11 },
 } as const;
 
+export const VALLEY_WOLF_PADS: Spot[] = [
+  { col: 16, row: 4 },
+  { col: 13, row: 2 },
+  { col: 15, row: 7 },
+];
+
+export const VALLEY_ELITE = { col: 7, row: 3 } as const;
+
 export function tileAt(map: readonly string[], col: number, row: number): string {
   return map[row]?.[col] ?? "#";
 }
 
 export function isWalkable(ch: string): boolean {
   return ch !== "#";
+}
+
+export function isDoorTile(ch: string): boolean {
+  return ch === "D";
+}
+
+export function tilesToData(tiles: readonly string[]): number[][] {
+  return tiles.map((line) =>
+    Array.from(line, (ch) => TILE_CHARS[ch] ?? TILE_INDEX.wall),
+  );
 }
 
 export function worldCenter(col: number, row: number): { x: number; y: number } {

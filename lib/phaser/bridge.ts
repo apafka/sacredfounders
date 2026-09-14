@@ -10,8 +10,8 @@ export type WorldEvent =
   | { type: "cook" }
   | { type: "open-market" }
   | { type: "door"; scene: "hearth" | "valley" }
-  | { type: "wolf-loot" }
-  | { type: "combat"; you: number; wolf: number };
+  | { type: "wolf-loot"; kind?: "pack" | "elite" }
+  | { type: "combat"; you: number; wolf: number; elite?: number; xp?: number; level?: number };
 
 export type WorldBridge = {
   getPlayer: () => PlayerState;

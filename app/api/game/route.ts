@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { chainStatus } from "@/lib/chain";
 import { isCropId, isGoodsId } from "@/lib/crops";
 import {
+  buySword,
   chooseClass,
   cookLoaf,
   createPlayer,
@@ -78,7 +79,10 @@ export async function POST(request: Request) {
       result = setScene(player, body.scene === "hearth" ? "hearth" : "valley");
       break;
     case "wolf-loot":
-      result = wolfLoot(player);
+      result = wolfLoot(player, body.kind === "elite" ? "elite" : "pack");
+      break;
+    case "buy-sword":
+      result = buySword(player);
       break;
     default:
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
