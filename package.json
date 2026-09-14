@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test lib/game-store.test.ts lib/phaser/layout.test.ts lib/phaser/move.test.ts lib/phaser/wolf-ai.test.ts"
+    "test": "node --import tsx --test lib/*.test.ts lib/phaser/*.test.ts"
   },
   "dependencies": {
     "next": "16.3.5",

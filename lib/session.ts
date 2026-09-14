@@ -57,10 +57,13 @@ export async function readPlayer(): Promise<PlayerState | null> {
 
 export async function writePlayer(player: PlayerState): Promise<void> {
   const jar = await cookies();
+  const embedded = process.env.NODE_ENV === "production";
   jar.set(COOKIE, encodePlayer(player), {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Third-party iframe on alanpafka.com needs SameSite=None; Secure.
+    // frame-ancestors still limits who may embed the app.
+    sameSite: embedded ? "none" : "lax",
+    secure: embedded,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
