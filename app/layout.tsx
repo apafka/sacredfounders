@@ -14,7 +14,8 @@ const sans = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: "Dragon World · Sacred Founders",
-  description: "One valley. Gather, seal, and trade what you earn.",
+  description: "Hearth garden, Old Bren, and a door to the valley.",
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

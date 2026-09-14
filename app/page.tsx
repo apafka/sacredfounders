@@ -1,5 +1,10 @@
-import { GameApp } from "@/components/game-app";
+import { GameShell } from "@/components/game-shell";
+import { Providers } from "@/components/providers";
 
 export default function Home() {
-  return <GameApp />;
+  return (
+    <Providers>
+      <GameShell />
+    </Providers>
+  );
 }

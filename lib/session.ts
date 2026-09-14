@@ -31,7 +31,7 @@ export function decodePlayer(token: string | undefined): PlayerState | null {
   if (sign(json) !== sig) return null;
   try {
     const parsed = JSON.parse(Buffer.from(json, "base64url").toString("utf8")) as PlayerState;
-    if (!parsed?.id || !parsed.inventory || !parsed.walletAddress) return null;
+    if (!parsed?.id || !parsed.basket || !parsed.plots || !parsed.walletAddress) return null;
     return parsed;
   } catch {
     return null;

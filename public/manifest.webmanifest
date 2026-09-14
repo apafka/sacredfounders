@@ -1,0 +1,8 @@
+{
+  "name": "Dragon World",
+  "short_name": "Hearth",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3efe4",
+  "theme_color": "#2c241c"
+}
