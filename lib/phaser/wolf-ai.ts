@@ -1,6 +1,6 @@
 /** Port of the original valley RAF loop into seconds so Phaser and tests share the lunge feel. */
 
-export const STRIKE_RANGE = 46;
+export const STRIKE_RANGE = 56;
 export const HIT_RANGE = 28;
 export const PLAYER_SPEED = 144;
 export const WOLF_WALK = 54;

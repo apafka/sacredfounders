@@ -61,6 +61,7 @@ export function WorldStage({
   const [hint, setHint] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
   const [strikeTick, setStrikeTick] = useState(0);
+  const [combat, setCombat] = useState({ you: 3, wolf: 3 });
 
   const useText = mode === "text" || failed;
   const inValley = player.scene === "valley";
@@ -97,6 +98,9 @@ export function WorldStage({
         case "wolf-loot":
           onLoot();
           break;
+        case "combat":
+          setCombat({ you: event.you, wolf: event.wolf });
+          break;
         default:
           break;
       }
@@ -123,7 +127,10 @@ export function WorldStage({
             </div>
           ) : null}
           {!useText && inValley ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">
+                You {combat.you} · Wolf {Math.max(0, combat.wolf)}
+              </span>
               <button className="btn-primary" type="button" disabled={busy} onClick={() => setStrikeTick((n) => n + 1)}>
                 Strike
               </button>

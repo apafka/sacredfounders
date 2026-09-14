@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { BRIDGE_KEY, type WorldBridge } from "../bridge";
+import { BRIDGE_KEY, pullValleyStrike, type WorldBridge } from "../bridge";
 import { bindClickToMove, label, paintTiles } from "../draw-map";
 import { TILE, VALLEY_SPOTS, VALLEY_TILES, isWalkable, tileAt, tileFromWorld, worldCenter } from "../layout";
 import { clampToRect, stepToward } from "../move";
@@ -18,6 +18,8 @@ export class ValleyScene extends Phaser.Scene {
   private body: Actor = { x: 0, y: 0, hp: 3 };
   private wolf: Wolf = { x: 0, y: 0, hp: 3, telegraph: 0, lunging: 0 };
   private won = false;
+  private pendingStrike = false;
+  private lastHud = "";
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
 
   constructor() {
@@ -45,18 +47,21 @@ export class ValleyScene extends Phaser.Scene {
     this.wolfSprite = this.add.image(wolfPos.x, wolfPos.y, "sprite-wolf").setDepth(10);
     this.marker = this.add.image(spawn.x, spawn.y, "sprite-marker").setDepth(9).setVisible(false);
     this.hpText = this.add
-      .text(TILE, TILE / 2, "", {
+      .text(TILE, TILE / 2, "You 3 · Wolf 3", {
         fontFamily: "Georgia, serif",
         fontSize: "12px",
         color: "#2c241c",
+        backgroundColor: "#f3efe4",
+        padding: { x: 6, y: 3 },
       })
       .setDepth(20)
       .setResolution(2);
 
     this.bridge().emit({
       type: "hint",
-      text: "Tap to walk. Tap the wolf or Strike when close. Dodge the red lunge.",
+      text: "Tap to walk. Tap the wolf or Strike — you will close in. Dodge the red lunge.",
     });
+    this.bridge().emit({ type: "combat", you: 3, wolf: 3 });
 
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
@@ -84,8 +89,8 @@ export class ValleyScene extends Phaser.Scene {
       this.walkTo(door);
       return;
     }
-    if (this.wolf.hp > 0 && Math.hypot(x - this.wolf.x, y - this.wolf.y) < TILE) {
-      if (!this.strike()) this.walkTo({ x: this.wolf.x, y: this.wolf.y });
+    if (this.wolf.hp > 0 && Math.hypot(x - this.wolf.x, y - this.wolf.y) < TILE * 1.4) {
+      this.strike();
       return;
     }
     const { col, row } = tileFromWorld(x, y);
@@ -102,21 +107,42 @@ export class ValleyScene extends Phaser.Scene {
 
   private strike = () => {
     const next = tryStrike(this.body, this.wolf);
-    if (!next) {
-      if (this.wolf.hp > 0 && this.body.hp > 0) {
-        this.bridge().emit({ type: "hint", text: "Step closer, then strike." });
+    if (next) {
+      this.pendingStrike = false;
+      this.wolf = next;
+      if (this.wolf.hp <= 0 && !this.won) {
+        this.won = true;
+        this.wolfSprite.setVisible(false);
+        this.bridge().emit({ type: "wolf-loot" });
+        this.bridge().emit({ type: "hint", text: "The wolf is down. Coins are yours. The door still opens." });
       }
-      return false;
+      this.publishHud();
+      return true;
     }
-    this.wolf = next;
-    if (this.wolf.hp <= 0 && !this.won) {
-      this.won = true;
-      this.wolfSprite.setVisible(false);
-      this.bridge().emit({ type: "wolf-loot" });
-      this.bridge().emit({ type: "hint", text: "The wolf is down. Coins are yours. The door still opens." });
+    if (this.wolf.hp > 0 && this.body.hp > 0) {
+      this.pendingStrike = true;
+      this.walkTo({ x: this.wolf.x, y: this.wolf.y });
+      this.bridge().emit({ type: "hint", text: "Closing in to strike." });
     }
-    return true;
+    return false;
   };
+
+  private publishHud() {
+    const you = Math.max(0, this.body.hp);
+    const wolfHp = Math.max(0, this.wolf.hp);
+    const line =
+      you <= 0
+        ? "You fall. Use the door. The hearth still stands."
+        : this.won
+          ? `You ${you} · Wolf down`
+          : `You ${you} · Wolf ${wolfHp}${this.wolf.telegraph > 0 ? " · lunge coming" : ""}`;
+    this.hpText.setText(line);
+    const key = `${you}:${wolfHp}:${this.won}:${you <= 0}`;
+    if (key !== this.lastHud) {
+      this.lastHud = key;
+      this.bridge().emit({ type: "combat", you, wolf: wolfHp });
+    }
+  }
 
   private bounds(x: number, y: number) {
     return clampToRect(x, y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8);
@@ -124,8 +150,17 @@ export class ValleyScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     const dt = delta / 1000;
+    if (pullValleyStrike()) this.strike();
     if (this.keys?.SPACE && Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
       this.strike();
+    }
+
+    if (this.pendingStrike && this.wolf.hp > 0 && this.body.hp > 0) {
+      if (tryStrike(this.body, this.wolf)) this.strike();
+      else {
+        this.dest = { x: this.wolf.x, y: this.wolf.y };
+        this.moving = true;
+      }
     }
 
     let ax = 0;
@@ -137,6 +172,7 @@ export class ValleyScene extends Phaser.Scene {
       if (this.keys.S.isDown || this.keys.DOWN.isDown) ay += 1;
     }
     if (ax !== 0 || ay !== 0) {
+      this.pendingStrike = false;
       this.moving = false;
       this.marker.setVisible(false);
       const len = Math.hypot(ax, ay) || 1;
@@ -152,9 +188,13 @@ export class ValleyScene extends Phaser.Scene {
       if (stepped.arrived) {
         this.moving = false;
         this.marker.setVisible(false);
-        const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
-        if (Math.hypot(this.body.x - door.x, this.body.y - door.y) < TILE) {
-          this.bridge().emit({ type: "door", scene: "hearth" });
+        if (this.pendingStrike) {
+          this.strike();
+        } else {
+          const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
+          if (Math.hypot(this.body.x - door.x, this.body.y - door.y) < TILE) {
+            this.bridge().emit({ type: "door", scene: "hearth" });
+          }
         }
       }
     }
@@ -170,14 +210,6 @@ export class ValleyScene extends Phaser.Scene {
       else this.wolfSprite.clearTint();
     }
 
-    const you = Math.max(0, this.body.hp);
-    const wolfHp = Math.max(0, this.wolf.hp);
-    this.hpText.setText(
-      you <= 0
-        ? "You fall. Use the door. The hearth still stands."
-        : this.won
-          ? `You ${you} · Wolf down`
-          : `You ${you} · Wolf ${wolfHp}${this.wolf.telegraph > 0 ? " · lunge coming" : ""}`,
-    );
+    this.publishHud();
   }
 }

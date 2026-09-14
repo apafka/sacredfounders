@@ -43,11 +43,13 @@ function pilgrim(scene: Phaser.Scene) {
 
 function wolf(scene: Phaser.Scene) {
   const g = gfx(scene);
-  g.fillStyle(C.wolf, 1);
-  g.fillRect(2, 4, 18, 10);
-  g.fillRect(0, 6, 6, 6);
-  g.fillRect(16, 2, 6, 6);
-  g.generateTexture("sprite-wolf", 22, 16);
+  g.fillStyle(0x3d2a1c, 1);
+  g.fillRect(4, 8, 22, 12);
+  g.fillRect(0, 10, 8, 8);
+  g.fillRect(22, 2, 8, 10);
+  g.fillStyle(0x8a6a4a, 1);
+  g.fillRect(6, 10, 6, 4);
+  g.generateTexture("sprite-wolf", 30, 22);
   g.destroy();
 }
 

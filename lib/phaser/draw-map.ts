@@ -16,8 +16,10 @@ export function label(scene: Phaser.Scene, x: number, y: number, text: string) {
   return scene.add
     .text(x, y, text, {
       fontFamily: "Georgia, serif",
-      fontSize: "10px",
+      fontSize: "12px",
       color: "#2c241c",
+      backgroundColor: "#f3efe4",
+      padding: { x: 4, y: 2 },
     })
     .setOrigin(0.5, 1)
     .setDepth(4)

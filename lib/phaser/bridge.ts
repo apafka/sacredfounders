@@ -10,7 +10,8 @@ export type WorldEvent =
   | { type: "cook" }
   | { type: "open-market" }
   | { type: "door"; scene: "hearth" | "valley" }
-  | { type: "wolf-loot" };
+  | { type: "wolf-loot" }
+  | { type: "combat"; you: number; wolf: number };
 
 export type WorldBridge = {
   getPlayer: () => PlayerState;
@@ -20,3 +21,15 @@ export type WorldBridge = {
 };
 
 export const BRIDGE_KEY = "bridge";
+
+let strikeQueued = false;
+
+export function queueValleyStrike() {
+  strikeQueued = true;
+}
+
+export function pullValleyStrike() {
+  if (!strikeQueued) return false;
+  strikeQueued = false;
+  return true;
+}

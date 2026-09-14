@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { WorldBridge, WorldEvent } from "@/lib/phaser/bridge";
+import { queueValleyStrike } from "@/lib/phaser/bridge";
 import type { CropId, PlayerState } from "@/lib/types";
 
 type GameHandle = {
@@ -91,6 +92,7 @@ export default function PhaserCanvas({
 
   useEffect(() => {
     if (!strikeTick) return;
+    queueValleyStrike();
     gameRef.current?.events.emit("valley-strike");
   }, [strikeTick]);
 
