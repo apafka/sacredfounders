@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HIT_RANGE, tickWolf, tryStrike } from "./wolf-ai";
+import { HIT_RANGE, RESPAWN_MS, nearestLiving, tickPack, tickWolf, tryStrike } from "./wolf-ai";
 
 test("wolf telegraph becomes a lunge that can hit", () => {
   const never = () => 1;
@@ -25,4 +25,31 @@ test("strike only lands in range", () => {
   const near = tryStrike({ x: 0, y: 0, hp: 3 }, { x: 20, y: 0, hp: 3, telegraph: 10, lunging: 10 });
   assert.equal(near?.hp, 2);
   assert.equal(near?.lunging, 0);
+  const blade = tryStrike({ x: 0, y: 0, hp: 3 }, { x: 20, y: 0, hp: 8, telegraph: 0, lunging: 0 }, 2);
+  assert.equal(blade?.hp, 6);
+});
+
+test("dead wolves respawn on their pad and nearest living skips corpses", () => {
+  const pack = [
+    {
+      id: 0,
+      kind: "pack" as const,
+      x: 10,
+      y: 0,
+      hp: 0,
+      maxHp: 3,
+      telegraph: 0,
+      lunging: 0,
+      spawnX: 40,
+      spawnY: 8,
+      respawnIn: 30,
+    },
+  ];
+  const waiting = tickPack({ x: 0, y: 0, hp: 3 }, pack, 0.01, () => 1);
+  assert.equal(waiting.wolves[0].hp, 0);
+  const back = tickPack({ x: 0, y: 0, hp: 3 }, pack, 1, () => 1);
+  assert.equal(back.wolves[0].hp, 3);
+  assert.equal(back.wolves[0].x, 40);
+  assert.equal(nearestLiving({ x: 0, y: 0, hp: 3 }, waiting.wolves), null);
+  assert.equal(RESPAWN_MS, 25_000);
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { SWORD_COST } from "@/lib/combat";
 import { BREN_PRICES, GOODS_META } from "@/lib/crops";
 import type { GoodsId, PlayerState } from "@/lib/types";
 import { GOODS_IDS } from "@/lib/types";
@@ -8,10 +9,12 @@ export function MarketPanel({
   player,
   busy,
   onSell,
+  onBuySword,
 }: {
   player: PlayerState;
   busy: boolean;
   onSell: (good: GoodsId) => void;
+  onBuySword?: () => void;
 }) {
   return (
     <section className="panel">
@@ -30,6 +33,21 @@ export function MarketPanel({
           </li>
         ))}
       </ul>
+      <div className="mt-3 border-t border-[var(--line)] pt-3 text-sm">
+        <p className="text-[var(--muted)]">Gear</p>
+        {player.hasSword ? (
+          <p className="mt-1">Iron Blade — your strike hits twice as hard.</p>
+        ) : (
+          <button
+            className="btn-tiny mt-1"
+            type="button"
+            disabled={busy || !onBuySword || player.coins < SWORD_COST}
+            onClick={() => onBuySword?.()}
+          >
+            Buy Iron Blade · {SWORD_COST} coins
+          </button>
+        )}
+      </div>
     </section>
   );
 }

@@ -24,6 +24,10 @@ export type PlayerState = {
   cookSkill: number;
   harvests: number;
   wolves: number;
+  xp: number;
+  level: number;
+  hasSword: boolean;
+  strikeDamage: number;
   lastFishAt: number;
   seeds: Record<CropId, number>;
   basket: Record<GoodsId, number>;

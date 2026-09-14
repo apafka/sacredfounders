@@ -43,6 +43,7 @@ export function WorldStage({
   onSell,
   onDoor,
   onLoot,
+  onBuySword,
 }: {
   player: PlayerState;
   seed: CropId;
@@ -54,14 +55,15 @@ export function WorldStage({
   onCook: () => void;
   onSell: (good: GoodsId) => void;
   onDoor: (scene: "hearth" | "valley") => void;
-  onLoot: () => void;
+  onLoot: (kind?: "pack" | "elite") => void;
+  onBuySword: () => void;
 }) {
   const [mode, setMode] = useState<"phaser" | "text">("phaser");
   const [failed, setFailed] = useState(false);
   const [hint, setHint] = useState("");
   const [marketOpen, setMarketOpen] = useState(false);
   const [strikeTick, setStrikeTick] = useState(0);
-  const [combat, setCombat] = useState({ you: 3, wolf: 3 });
+  const [combat, setCombat] = useState({ you: 3, wolf: 3, elite: 8, xp: 0, level: 1 });
 
   const useText = mode === "text" || failed;
   const inValley = player.scene === "valley";
@@ -96,10 +98,16 @@ export function WorldStage({
           onDoor(event.scene);
           break;
         case "wolf-loot":
-          onLoot();
+          onLoot(event.kind);
           break;
         case "combat":
-          setCombat({ you: event.you, wolf: event.wolf });
+          setCombat({
+            you: event.you,
+            wolf: event.wolf,
+            elite: event.elite ?? 0,
+            xp: event.xp ?? player.xp,
+            level: event.level ?? player.level,
+          });
           break;
         default:
           break;
@@ -129,7 +137,8 @@ export function WorldStage({
           {!useText && inValley ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm">
-                You {combat.you} · Wolf {Math.max(0, combat.wolf)}
+                You {combat.you} · Wolves {Math.max(0, combat.wolf)}/3 · Dire {combat.elite} · Lv {player.level} ({player.xp} xp)
+                {player.hasSword ? " · Iron Blade" : ""}
               </span>
               <button className="btn-primary" type="button" disabled={busy} onClick={() => setStrikeTick((n) => n + 1)}>
                 Strike
@@ -157,7 +166,7 @@ export function WorldStage({
 
         {useText ? (
           inValley ? (
-            <ValleyCombat busy={busy} onLoot={onLoot} onHome={() => onDoor("hearth")} />
+            <ValleyCombat busy={busy} onLoot={() => onLoot()} onHome={() => onDoor("hearth")} />
           ) : (
             <HearthView
               player={player}
@@ -189,7 +198,7 @@ export function WorldStage({
                     Close
                   </button>
                 </div>
-                <MarketPanel player={player} busy={busy} onSell={onSell} />
+                <MarketPanel player={player} busy={busy} onSell={onSell} onBuySword={onBuySword} />
               </div>
             ) : null}
           </div>
@@ -200,7 +209,7 @@ export function WorldStage({
 
       <div className="flex flex-col gap-4">
         <BasketPanel player={player} />
-        <MarketPanel player={player} busy={busy} onSell={onSell} />
+        <MarketPanel player={player} busy={busy} onSell={onSell} onBuySword={onBuySword} />
         <SessionLog player={player} />
       </div>
     </div>

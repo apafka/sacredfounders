@@ -1,4 +1,4 @@
-/** Port of the original valley RAF loop into seconds so Phaser and tests share the lunge feel. */
+import { ELITE_HP, PACK_COUNT, PACK_HP, PLAYER_MAX_HP, RESPAWN_MS } from "../combat";
 
 export const STRIKE_RANGE = 56;
 export const HIT_RANGE = 28;
@@ -13,6 +13,14 @@ export const LUNGE_CHANCE_PER_SEC = 0.72;
 
 export type Actor = { x: number; y: number; hp: number };
 export type Wolf = Actor & { telegraph: number; lunging: number };
+export type PackWolf = Wolf & {
+  id: number;
+  kind: "pack" | "elite";
+  maxHp: number;
+  spawnX: number;
+  spawnY: number;
+  respawnIn: number;
+};
 
 export function tickWolf(
   player: Actor,
@@ -57,8 +65,50 @@ export function tickWolf(
   return { player: p, wolf: w };
 }
 
-export function tryStrike(player: Actor, wolf: Wolf): Wolf | null {
+export function tryStrike(player: Actor, wolf: Wolf, damage = 1): Wolf | null {
   if (wolf.hp <= 0 || player.hp <= 0) return null;
   if (Math.hypot(player.x - wolf.x, player.y - wolf.y) >= STRIKE_RANGE) return null;
-  return { ...wolf, hp: wolf.hp - 1, lunging: 0 };
+  return { ...wolf, hp: Math.max(0, wolf.hp - damage), lunging: 0 };
 }
+
+export function nearestLiving(player: Actor, wolves: PackWolf[]): PackWolf | null {
+  const live = wolves.filter((w) => w.hp > 0);
+  if (!live.length) return null;
+  return live.reduce((best, w) =>
+    Math.hypot(player.x - w.x, player.y - w.y) < Math.hypot(player.x - best.x, player.y - best.y) ? w : best,
+  );
+}
+
+export function tickPack(
+  player: Actor,
+  wolves: PackWolf[],
+  dtSec: number,
+  rng: () => number = Math.random,
+): { player: Actor; wolves: PackWolf[] } {
+  let p = { ...player };
+  const dtMs = dtSec * 1000;
+  const next = wolves.map((wolf) => {
+    if (wolf.hp <= 0) {
+      const left = wolf.respawnIn - dtMs;
+      if (left <= 0) {
+        return {
+          ...wolf,
+          x: wolf.spawnX,
+          y: wolf.spawnY,
+          hp: wolf.maxHp,
+          telegraph: 0,
+          lunging: 0,
+          respawnIn: 0,
+        };
+      }
+      return { ...wolf, respawnIn: left };
+    }
+    if (p.hp <= 0) return wolf;
+    const ticked = tickWolf(p, wolf, dtSec, rng);
+    p = ticked.player;
+    return { ...wolf, ...ticked.wolf };
+  });
+  return { player: p, wolves: next };
+}
+
+export { PACK_COUNT, PACK_HP, ELITE_HP, PLAYER_MAX_HP, RESPAWN_MS };

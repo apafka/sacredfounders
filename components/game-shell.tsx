@@ -98,7 +98,8 @@ export function GameShell() {
           <h1 className="!text-[1.65rem]">{player.scene === "valley" ? "Northern hills" : "Hearth"}</h1>
         </div>
         <p className="text-sm text-[var(--muted)]">
-          {player.name} · {player.classId === "fighter" ? "Fighter" : "Spiritual"} · {player.coins} coins · farm {player.farmSkill} · fish {player.fishSkill} · cook {player.cookSkill}
+          {player.name} · {player.classId === "fighter" ? "Fighter" : "Spiritual"} · {player.coins} coins · lv {player.level} ({player.xp} xp)
+          {player.hasSword ? " · Iron Blade" : ""} · farm {player.farmSkill}
         </p>
       </header>
       {message ? <p className="banner">{message}</p> : null}
@@ -115,7 +116,8 @@ export function GameShell() {
         onCook={() => run("cook")}
         onSell={(good) => run("sell", { good })}
         onDoor={(scene) => run("door", { scene })}
-        onLoot={() => run("wolf-loot")}
+        onLoot={(kind) => run("wolf-loot", { kind })}
+        onBuySword={() => run("buy-sword")}
       />
     </div>
   );

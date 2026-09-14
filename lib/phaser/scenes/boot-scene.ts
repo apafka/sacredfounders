@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { ART_PACK_DIR, ART_PACK_FILES, PLACEHOLDER_COLORS as C, USE_ART_PACK } from "../art";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
-import { TILE } from "../layout";
+import { TILE, TILESET_KEYS } from "../layout";
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   return new Phaser.GameObjects.Graphics(scene);
@@ -64,11 +64,58 @@ function prop(scene: Phaser.Scene, key: string, w: number, h: number, fill: numb
   g.destroy();
 }
 
+function worldTilesetStrip(scene: Phaser.Scene) {
+  const g = gfx(scene);
+  const swatches: Record<(typeof TILESET_KEYS)[number], [number, number]> = {
+    "tile-grass": [C.grass, C.grassEdge],
+    "tile-path": [C.path, C.pathEdge],
+    "tile-floor": [C.floor, C.floorEdge],
+    "tile-creek": [C.creek, C.creekEdge],
+    "tile-wall": [C.wall, C.wallEdge],
+    "tile-door": [C.doorTile, C.doorTileEdge],
+  };
+  TILESET_KEYS.forEach((key, i) => {
+    const [fill, edge] = swatches[key];
+    const x = i * TILE;
+    g.fillStyle(fill, 1);
+    g.fillRect(x, 0, TILE, TILE);
+    g.lineStyle(1, edge, 0.9);
+    g.strokeRect(x + 1, 1, TILE - 2, TILE - 2);
+    g.fillStyle(edge, 0.18);
+    g.fillRect(x + TILE - 6, TILE - 6, 5, 5);
+    if (key === "tile-path") {
+      g.fillStyle(0xe8dcc0, 0.45);
+      g.fillRect(x + 6, 12, TILE - 12, 8);
+    }
+    if (key === "tile-door") {
+      g.fillStyle(0xc4a35a, 1);
+      g.fillRect(x + 20, 14, 5, 5);
+    }
+  });
+  g.generateTexture("world-tiles", TILE * TILESET_KEYS.length, TILE);
+  g.destroy();
+}
+
+export function composeWorldTileset(scene: Phaser.Scene) {
+  if (scene.textures.exists("world-tiles")) return;
+  const rt = scene.make.renderTexture(
+    { width: TILE * TILESET_KEYS.length, height: TILE },
+    false,
+  );
+  TILESET_KEYS.forEach((key, i) => {
+    if (scene.textures.exists(key)) rt.draw(key, i * TILE, 0);
+  });
+  rt.saveTexture("world-tiles");
+  rt.destroy();
+}
+
 export function makePlaceholderTextures(scene: Phaser.Scene) {
-  tile(scene, "tile-floor", C.floor, C.floorEdge);
-  tile(scene, "tile-wall", C.wall, C.wallEdge);
-  tile(scene, "tile-creek", C.creek, C.creekEdge);
   tile(scene, "tile-grass", C.grass, C.grassEdge);
+  tile(scene, "tile-path", C.path, C.pathEdge);
+  tile(scene, "tile-floor", C.floor, C.floorEdge);
+  tile(scene, "tile-creek", C.creek, C.creekEdge);
+  tile(scene, "tile-wall", C.wall, C.wallEdge);
+  tile(scene, "tile-door", C.doorTile, C.doorTileEdge);
   tile(scene, "tile-soil", C.soil, C.floorEdge);
   crop(scene, "crop-grain-grow", C.grainGrow, false);
   crop(scene, "crop-grain-ready", C.grainReady, true);
@@ -95,6 +142,7 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
   marker.fillCircle(6, 6, 5);
   marker.generateTexture("sprite-marker", 12, 12);
   marker.destroy();
+  worldTilesetStrip(scene);
 }
 
 export class BootScene extends Phaser.Scene {
@@ -112,6 +160,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     try {
       if (!USE_ART_PACK) makePlaceholderTextures(this);
+      else composeWorldTileset(this);
       const bridge = this.registry.get(BRIDGE_KEY) as WorldBridge;
       const scene = bridge.getPlayer().scene === "valley" ? "valley" : "hearth";
       bridge.emit({ type: "ready" });

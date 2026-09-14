@@ -1,3 +1,4 @@
+import { IRON_BLADE_DAMAGE, SWORD_COST, levelFromXp, xpForKill, type BeastKind } from "./combat";
 import { plotReady } from "./crops";
 import { rollHarvestBonus } from "./rarity";
 import type { ClassId, CropId, GoodsId, PlayerState } from "./types";
@@ -37,6 +38,10 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     cookSkill: 0,
     harvests: 0,
     wolves: 0,
+    xp: 0,
+    level: 1,
+    hasSword: false,
+    strikeDamage: 1,
     lastFishAt: 0,
     seeds: { grain: 4, root: 4, herb: 4 },
     basket: emptyBasket(),
@@ -180,19 +185,46 @@ export function setScene(player: PlayerState, scene: PlayerState["scene"], now =
   return { player: log({ ...player, scene }, text, now), ok: true, message: text };
 }
 
-export function wolfLoot(player: PlayerState, now = Date.now()): Result {
+export function buySword(player: PlayerState, now = Date.now()): Result {
   if (!player.classId) return { player, ok: false, message: "Choose a path first." };
-  if (player.scene !== "valley") return { player, ok: false, message: "The wolf is through the door." };
-  const extra = player.classId === "fighter" ? 2 : 0;
-  const gain = 6 + extra;
+  if (player.hasSword) return { player, ok: false, message: "You already carry the Iron Blade." };
+  if (player.coins < SWORD_COST) return { player, ok: false, message: `Old Bren asks ${SWORD_COST} coins.` };
   return {
     player: log(
-      { ...player, coins: player.coins + gain, wolves: player.wolves + 1 },
-      `Wolf falls. ${gain} coins.`,
+      {
+        ...player,
+        coins: player.coins - SWORD_COST,
+        hasSword: true,
+        strikeDamage: IRON_BLADE_DAMAGE,
+        whisper: "Old Bren: the blade bites. The valley will notice.",
+      },
+      `Bought the Iron Blade for ${SWORD_COST} coins. Strike hits harder.`,
       now,
     ),
     ok: true,
-    message: `+${gain} coins.`,
+    message: "Iron Blade in hand.",
+  };
+}
+
+export function wolfLoot(player: PlayerState, kind: BeastKind = "pack", now = Date.now()): Result {
+  if (!player.classId) return { player, ok: false, message: "Choose a path first." };
+  if (player.scene !== "valley") return { player, ok: false, message: "The wolf is through the door." };
+  const extra = player.classId === "fighter" ? 2 : 0;
+  const elite = kind === "elite";
+  const gain = (elite ? 14 : 6) + extra;
+  const xpGain = xpForKill(kind);
+  const xp = player.xp + xpGain;
+  const level = levelFromXp(xp);
+  const leveled = level > player.level;
+  const label = elite ? "Dire wolf" : "Wolf";
+  return {
+    player: log(
+      { ...player, coins: player.coins + gain, wolves: player.wolves + 1, xp, level },
+      `${label} falls. ${gain} coins. +${xpGain} xp${leveled ? `. Level ${level}.` : "."}`,
+      now,
+    ),
+    ok: true,
+    message: `+${gain} coins, +${xpGain} xp.`,
   };
 }
 
