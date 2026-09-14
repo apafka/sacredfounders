@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+:root {
+  --parchment: #f3efe4;
+  --ink: #2c241c;
+  --muted: #6d6256;
+  --line: #d7cfc0;
+  --ember: #8b4b32;
+  --copper: #8b5e3c;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--parchment);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans), "Source Sans 3", sans-serif;
+}
+
+h1,
+h2,
+.eyebrow {
+  font-family: var(--font-serif), Fraunces, Georgia, serif;
+}
+
+h1 {
+  font-size: 2.4rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.eyebrow {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lede {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.btn-primary,
+.btn-quiet,
+.btn-tiny,
+.card-btn,
+.tab {
+  cursor: pointer;
+}
+
+.btn-primary {
+  align-self: start;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--parchment);
+  padding: 0.7rem 1.2rem;
+  font-size: 1rem;
+}
+
+.btn-primary:disabled,
+.btn-quiet:disabled,
+.btn-tiny:disabled,
+.card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-quiet,
+.btn-tiny {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn-quiet {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.btn-tiny {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.card-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #faf7ef;
+  padding: 1.1rem;
+}
+
+.card-btn strong {
+  font-family: var(--font-serif), Fraunces, serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.card-btn span {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: #faf7ef;
+  padding: 0.9rem;
+}
+
+.banner {
+  margin-top: 0.75rem;
+  border-left: 2px solid var(--copper);
+  padding-left: 0.75rem;
+  color: var(--ember);
+}
+
+.tab {
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 0.45rem;
+  text-transform: capitalize;
+}
+
+.tab-on {
+  background: var(--ink);
+  color: var(--parchment);
+}
