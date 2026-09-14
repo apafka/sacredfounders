@@ -1,9 +1,14 @@
-import { BREN_PRICES, CROP_META, GROW_MS, type CropId } from "./types";
+import { BREN_PRICES, CROP_META, GOODS_META, GROW_MS, type CropId, type GoodsId } from "./types";
+import { GOODS_IDS } from "./types";
 
-export { BREN_PRICES, CROP_META, GROW_MS };
+export { BREN_PRICES, CROP_META, GOODS_META, GROW_MS };
 
 export function isCropId(value: string): value is CropId {
   return value === "grain" || value === "root" || value === "herb";
+}
+
+export function isGoodsId(value: string): value is GoodsId {
+  return (GOODS_IDS as readonly string[]).includes(value);
 }
 
 export function growDuration(crop: CropId, farmSkill: number): number {

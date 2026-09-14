@@ -32,7 +32,19 @@ export function decodePlayer(token: string | undefined): PlayerState | null {
   try {
     const parsed = JSON.parse(Buffer.from(json, "base64url").toString("utf8")) as PlayerState;
     if (!parsed?.id || !parsed.basket || !parsed.plots || !parsed.walletAddress) return null;
-    return parsed;
+    return {
+      ...parsed,
+      fishSkill: parsed.fishSkill ?? 0,
+      cookSkill: parsed.cookSkill ?? 0,
+      lastFishAt: parsed.lastFishAt ?? 0,
+      basket: {
+        grain: parsed.basket.grain ?? 0,
+        root: parsed.basket.root ?? 0,
+        herb: parsed.basket.herb ?? 0,
+        fish: parsed.basket.fish ?? 0,
+        loaf: parsed.basket.loaf ?? 0,
+      },
+    };
   } catch {
     return null;
   }

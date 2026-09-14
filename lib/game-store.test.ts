@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chooseClass, createPlayer, harvest, plant, sellToBren, setScene, wolfLoot } from "./game-store";
+import { chooseClass, cookLoaf, createPlayer, fishCreek, harvest, plant, sellToBren, setScene, wolfLoot } from "./game-store";
 
 test("class pick persists on the player", () => {
   const pilgrim = createPlayer("p1", "Alan", 1);
@@ -34,4 +34,24 @@ test("wolf loot only in the valley and fighter earns more", () => {
   const loot = wolfLoot(there, 5);
   assert.equal(loot.ok, true);
   assert.equal(loot.player.coins, 8);
+});
+
+test("fishing and cooking stubs sell to Old Bren", () => {
+  let player = chooseClass(createPlayer("p4", "Cook", 1), "spiritual", 2).player;
+  const fished = fishCreek(player, () => 1, 100);
+  assert.equal(fished.ok, true);
+  assert.equal(fished.player.basket.fish, 1);
+  assert.equal(fished.player.fishSkill, 1);
+  const soldFish = sellToBren(fished.player, "fish", 101);
+  assert.equal(soldFish.ok, true);
+  assert.equal(soldFish.player.coins, 5);
+
+  player = { ...soldFish.player, basket: { ...soldFish.player.basket, grain: 1 } };
+  const loaf = cookLoaf(player, 102);
+  assert.equal(loaf.ok, true);
+  assert.equal(loaf.player.basket.loaf, 1);
+  assert.equal(loaf.player.basket.grain, 0);
+  assert.ok(loaf.player.cookSkill >= 2);
+  const soldLoaf = sellToBren(loaf.player, "loaf", 103);
+  assert.equal(soldLoaf.player.coins, 5 + 8);
 });

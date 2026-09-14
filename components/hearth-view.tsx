@@ -12,6 +12,8 @@ export function HearthView({
   busy,
   onPlant,
   onHarvest,
+  onFish,
+  onCook,
   onDoor,
 }: {
   player: PlayerState;
@@ -20,6 +22,8 @@ export function HearthView({
   busy: boolean;
   onPlant: (plotId: number) => void;
   onHarvest: (plotId: number) => void;
+  onFish: () => void;
+  onCook: () => void;
   onDoor: () => void;
 }) {
   const [now, setNow] = useState(0);
@@ -72,6 +76,17 @@ export function HearthView({
       </div>
       <p className="mt-3 text-sm text-[var(--muted)]">
         Plant, wait, harvest. Farm skill rises with harvests. The dragon is a statue rumor here — not a boss.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--line)] pt-3">
+        <button className="btn-quiet" type="button" disabled={busy} onClick={onFish}>
+          Creek · fish
+        </button>
+        <button className="btn-quiet" type="button" disabled={busy || player.basket.grain < 1} onClick={onCook}>
+          Kitchen · loaf (1 grain)
+        </button>
+      </div>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Fishing and cooking are stubs: same basket, same Old Bren coins. Minigames later.
       </p>
     </section>
   );

@@ -1,11 +1,17 @@
 import { plotReady } from "./crops";
 import { rollHarvestBonus } from "./rarity";
-import type { ClassId, CropId, PlayerState } from "./types";
-import { BREN_PRICES, CROP_IDS } from "./types";
+import type { ClassId, CropId, GoodsId, PlayerState } from "./types";
+import { BREN_PRICES, GOODS_IDS } from "./types";
 
 export type Result = { player: PlayerState; ok: boolean; message: string };
 
-const emptyCrops = (): Record<CropId, number> => ({ grain: 0, root: 0, herb: 0 });
+const emptyBasket = (): Record<GoodsId, number> => ({
+  grain: 0,
+  root: 0,
+  herb: 0,
+  fish: 0,
+  loaf: 0,
+});
 
 export function sessionWallet(playerId: string): string {
   const hex = Array.from(playerId.replace(/-/g, ""))
@@ -27,10 +33,13 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     scene: "hearth",
     coins: 0,
     farmSkill: 0,
+    fishSkill: 0,
+    cookSkill: 0,
     harvests: 0,
     wolves: 0,
+    lastFishAt: 0,
     seeds: { grain: 4, root: 4, herb: 4 },
-    basket: emptyCrops(),
+    basket: emptyBasket(),
     plots: Array.from({ length: 6 }, (_, id) => ({ id, crop: null, plantedAt: null })),
     whisper: "Old Bren: baker needs three loaves. Grain would help.",
     log: [{ at: now, text: "You stand at the hearth threshold. Choose how you will walk." }],
@@ -96,25 +105,72 @@ export function harvest(player: PlayerState, plotId: number, now = Date.now()): 
   };
 }
 
-export function sellToBren(player: PlayerState, crop: CropId, now = Date.now()): Result {
+export function sellToBren(player: PlayerState, good: GoodsId, now = Date.now()): Result {
   if (!player.classId) return { player, ok: false, message: "Choose a path first." };
-  if (player.basket[crop] < 1) return { player, ok: false, message: `No ${crop} in the basket.` };
-  const extra = player.classId === "spiritual" && crop === "herb" ? 1 : 0;
-  const price = BREN_PRICES[crop] + extra;
-  const basket = { ...player.basket, [crop]: player.basket[crop] - 1 };
+  if (player.basket[good] < 1) return { player, ok: false, message: `No ${good} in the basket.` };
+  const extra = player.classId === "spiritual" && good === "herb" ? 1 : 0;
+  const price = BREN_PRICES[good] + extra;
+  const basket = { ...player.basket, [good]: player.basket[good] - 1 };
   const coins = player.coins + price;
   const whisper =
-    crop === "grain"
-      ? "Old Bren: that's for the baker. Still wants three loaves' worth."
-      : "Old Bren weighs it and nods.";
+    good === "grain"
+      ? "Old Bren: baker needs three loaves. Cook the grain at the kitchen."
+      : good === "loaf"
+        ? "Old Bren: that's one for the baker."
+        : good === "fish"
+          ? "Old Bren salts the fish. Port comes later."
+          : "Old Bren weighs it and nods.";
   return {
     player: log(
       { ...player, basket, coins, whisper },
-      `Sold ${crop} to Old Bren for ${price} coins.`,
+      `Sold ${good} to Old Bren for ${price} coins.`,
       now,
     ),
     ok: true,
     message: `Old Bren pays ${price} coins.`,
+  };
+}
+
+export function fishCreek(player: PlayerState, rng = Math.random, now = Date.now()): Result {
+  if (!player.classId) return { player, ok: false, message: "Choose a path first." };
+  if (player.scene !== "hearth") return { player, ok: false, message: "The creek is by the hearth." };
+  if (player.lastFishAt > 0 && now - player.lastFishAt < 2500) {
+    return { player, ok: false, message: "The water stills. Wait a breath." };
+  }
+  const extra = player.classId === "fighter" && rng() < 0.22 ? 1 : 0;
+  const amount = 1 + extra;
+  const basket = { ...player.basket, fish: player.basket.fish + amount };
+  const fishSkill = player.fishSkill + 1;
+  return {
+    player: log(
+      { ...player, basket, fishSkill, lastFishAt: now },
+      `You pull ${amount} fish from the creek. Fish ${fishSkill}.`,
+      now,
+    ),
+    ok: true,
+    message: `Caught ${amount} fish.`,
+  };
+}
+
+export function cookLoaf(player: PlayerState, now = Date.now()): Result {
+  if (!player.classId) return { player, ok: false, message: "Choose a path first." };
+  if (player.scene !== "hearth") return { player, ok: false, message: "The kitchen is at the hearth." };
+  if (player.basket.grain < 1) return { player, ok: false, message: "Need 1 grain for a loaf." };
+  const extra = player.classId === "spiritual" ? 1 : 0;
+  const cookSkill = player.cookSkill + 1 + extra;
+  const basket = {
+    ...player.basket,
+    grain: player.basket.grain - 1,
+    loaf: player.basket.loaf + 1,
+  };
+  return {
+    player: log(
+      { ...player, basket, cookSkill, whisper: "Old Bren: baker needs three loaves." },
+      `You bake a loaf. Cook ${cookSkill}.`,
+      now,
+    ),
+    ok: true,
+    message: "Baked a loaf.",
   };
 }
 
@@ -141,5 +197,5 @@ export function wolfLoot(player: PlayerState, now = Date.now()): Result {
 }
 
 export function basketTotal(player: PlayerState): number {
-  return CROP_IDS.reduce((sum, id) => sum + player.basket[id], 0);
+  return GOODS_IDS.reduce((sum, id) => sum + player.basket[id], 0);
 }

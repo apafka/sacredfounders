@@ -102,7 +102,7 @@ export function GameShell() {
           <h1 className="!text-[1.65rem]">{player.scene === "valley" ? "Northern hills" : "Hearth"}</h1>
         </div>
         <p className="text-sm text-[var(--muted)]">
-          {player.name} · {player.classId === "fighter" ? "Fighter" : "Spiritual"} · {player.coins} coins · farm {player.farmSkill}
+          {player.name} · {player.classId === "fighter" ? "Fighter" : "Spiritual"} · {player.coins} coins · farm {player.farmSkill} · fish {player.fishSkill} · cook {player.cookSkill}
         </p>
       </header>
       {message ? <p className="banner">{message}</p> : null}
@@ -123,11 +123,13 @@ export function GameShell() {
             busy={busy}
             onPlant={(plotId) => run("plant", { plotId, crop: seed })}
             onHarvest={(plotId) => run("harvest", { plotId })}
+            onFish={() => run("fish")}
+            onCook={() => run("cook")}
             onDoor={() => run("door", { scene: "valley" })}
           />
           <div className="flex flex-col gap-4">
             <BasketPanel player={player} />
-            <MarketPanel player={player} busy={busy} onSell={(crop) => run("sell", { crop })} />
+            <MarketPanel player={player} busy={busy} onSell={(good) => run("sell", { good })} />
             <SessionLog player={player} />
           </div>
         </div>

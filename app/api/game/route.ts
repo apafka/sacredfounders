@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { chainStatus } from "@/lib/chain";
-import { isCropId } from "@/lib/crops";
+import { isCropId, isGoodsId } from "@/lib/crops";
 import {
   chooseClass,
+  cookLoaf,
   createPlayer,
+  fishCreek,
   harvest,
   plant,
   sellToBren,
@@ -12,7 +14,7 @@ import {
   type Result,
 } from "@/lib/game-store";
 import { newPlayerId, readPlayer, writePlayer } from "@/lib/session";
-import type { ClassId, PlayerState } from "@/lib/types";
+import type { ClassId, GoodsId, PlayerState } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,11 +62,17 @@ export async function POST(request: Request) {
     case "harvest":
       result = harvest(player, Number(body.plotId));
       break;
+    case "fish":
+      result = fishCreek(player);
+      break;
+    case "cook":
+      result = cookLoaf(player);
+      break;
     case "sell":
-      if (!isCropId(String(body.crop))) {
-        return NextResponse.json({ error: "Unknown crop." }, { status: 400 });
+      if (!isGoodsId(String(body.crop ?? body.good))) {
+        return NextResponse.json({ error: "Unknown good." }, { status: 400 });
       }
-      result = sellToBren(player, body.crop as "grain" | "root" | "herb");
+      result = sellToBren(player, String(body.crop ?? body.good) as GoodsId);
       break;
     case "door":
       result = setScene(player, body.scene === "hearth" ? "hearth" : "valley");
