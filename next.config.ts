@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const frameAncestorsCsp =
+/** Allow alanpafka.com to embed this app. Omit X-Frame-Options so CSP wins. */
+export const FRAME_ANCESTORS_CSP =
   "frame-ancestors 'self' https://alanpafka.com https://www.alanpafka.com;";
 
 const nextConfig: NextConfig = {
@@ -14,7 +15,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: frameAncestorsCsp,
+            value: FRAME_ANCESTORS_CSP,
           },
         ],
       },

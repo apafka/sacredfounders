@@ -32,8 +32,10 @@ No Vercel project is linked from this environment (CLI logged out; MCP needs aut
 
 1. [Import `apafka/sacredfounders`](https://vercel.com/new) → Framework Preset **Next.js** → root of the repo.
 2. Deploy **Production**. Note the `*.vercel.app` URL.
-3. Blog entry / public door: `https://alanpafka.com/game.html` should link or proxy to that production URL. This app also rewrites `/game.html` → `/`, so if `alanpafka.com` is attached as a Vercel domain, `/game.html` loads the hearth.
+3. Blog entry / public door: `https://alanpafka.com/game.html` (and `www`) may **iframe** the production URL. This app sends `Content-Security-Policy: frame-ancestors 'self' https://alanpafka.com https://www.alanpafka.com;` and does not set `X-Frame-Options`. It also rewrites `/game.html` → `/` if that host is attached as a Vercel domain.
 4. Ignore sacredfounders.com until later.
+
+**Public play / embed:** Production must stay off Vercel Authentication and SSO Protection. If those are on, anonymous visitors (and the alanpafka.com iframe) get a 403 login wall instead of Dragon World. Preview protection can stay on.
 
 ## DEV NOTES
 
