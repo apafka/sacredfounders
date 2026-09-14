@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AuthControls } from "./auth-controls";
-import { BasketPanel } from "./basket-panel";
-import { HearthView } from "./hearth-view";
-import { MarketPanel } from "./market-panel";
-import { SessionLog } from "./session-log";
-import { ValleyCombat } from "./valley-combat";
+import { WorldStage } from "./world-stage";
 import type { ClassId, CropId, PlayerState } from "@/lib/types";
 
 type View = { player: PlayerState | null; message?: string };
@@ -108,32 +104,19 @@ export function GameShell() {
       {message ? <p className="banner">{message}</p> : null}
       {player.whisper ? <p className="mt-2 text-sm text-[var(--muted)]">{player.whisper}</p> : null}
 
-      {player.scene === "valley" ? (
-        <ValleyCombat
-          busy={busy}
-          onLoot={() => run("wolf-loot")}
-          onHome={() => run("door", { scene: "hearth" })}
-        />
-      ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.8fr)]">
-          <HearthView
-            player={player}
-            seed={seed}
-            setSeed={setSeed}
-            busy={busy}
-            onPlant={(plotId) => run("plant", { plotId, crop: seed })}
-            onHarvest={(plotId) => run("harvest", { plotId })}
-            onFish={() => run("fish")}
-            onCook={() => run("cook")}
-            onDoor={() => run("door", { scene: "valley" })}
-          />
-          <div className="flex flex-col gap-4">
-            <BasketPanel player={player} />
-            <MarketPanel player={player} busy={busy} onSell={(good) => run("sell", { good })} />
-            <SessionLog player={player} />
-          </div>
-        </div>
-      )}
+      <WorldStage
+        player={player}
+        seed={seed}
+        setSeed={setSeed}
+        busy={busy}
+        onPlant={(plotId) => run("plant", { plotId, crop: seed })}
+        onHarvest={(plotId) => run("harvest", { plotId })}
+        onFish={() => run("fish")}
+        onCook={() => run("cook")}
+        onSell={(good) => run("sell", { good })}
+        onDoor={(scene) => run("door", { scene })}
+        onLoot={() => run("wolf-loot")}
+      />
     </div>
   );
 }

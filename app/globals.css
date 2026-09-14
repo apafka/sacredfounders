@@ -140,3 +140,19 @@ h2 {
   background: var(--ink);
   color: var(--parchment);
 }
+
+.world-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 640 / 448;
+  max-height: min(70dvh, 560px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #4a3f32;
+  touch-action: none;
+}
+
+.world-stage canvas {
+  display: block;
+  cursor: pointer;
+}

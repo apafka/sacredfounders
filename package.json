@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test lib/game-store.test.ts"
+    "test": "node --import tsx --test lib/game-store.test.ts lib/phaser/layout.test.ts lib/phaser/move.test.ts lib/phaser/wolf-ai.test.ts"
   },
   "dependencies": {
     "next": "16.3.5",
+    "phaser": "3.90.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

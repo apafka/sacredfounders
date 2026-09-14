@@ -20,11 +20,13 @@ npm run build
 
 ## Loop (this branch)
 
-1. Pilgrim Gate — no wallet modal. Cookie `sf_pilgrim` survives refresh.
-2. Class — **Fighter** or **Spiritual**. Persists.
-3. Hearth — plant/harvest grain, root, herb. Creek **fish** and kitchen **loaf** stubs. Sell all of it to **Old Bren** for soft coins.
-4. Door — wolf (move / strike / dodge red lunge) → coins.
+1. Pilgrim Gate — no wallet modal. Cookie `sf_pilgrim` survives refresh. **Still the old text UI.**
+2. Class — **Fighter** or **Spiritual**. Persists. **Still the old text UI.**
+3. Hearth — Phaser 3 top-down 32px tiles (tap/click to walk). Garden beds plant/harvest; creek **fish**; kitchen **loaf**; walk to **Old Bren** to open sell. Same `/api/game` actions.
+4. Door — Phaser valley: tap-to-move, Strike (or tap the wolf), dodge the red lunge → coins.
 5. Chain — `POST /api/chain`. `ENABLE_CHAIN=false` by default.
+
+If Phaser fails to boot, the written hearth and valley stay available (**Text view**). Basket, Old Bren prices, and the session log remain HTML overlays.
 
 ## Deploy (CBO)
 
@@ -40,5 +42,15 @@ No Vercel project is linked from this environment (CLI logged out; MCP needs aut
 **Found.** `apafka/sacredfounders` had no prior Dragon World tree. Prior cloud branches were not on this remote.
 
 **Merged.** One Next.js tree: pilgrim → Fighter/Spiritual → garden / fish / cook → Old Bren → valley wolf. No second game.
+
+**2D slice.** Phaser 3.90, top-down (not isometric). Warm temple palette. Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`, and a text fallback so a WebGL/canvas miss does not brick the app.
+
+**Art-pack swap.** Placeholders are colored rectangles generated in `lib/phaser/scenes/boot-scene.ts`. To swap a real pack:
+
+1. Drop PNGs in `public/game/art/` named as in `lib/phaser/art.ts` (`floor.png`, `pilgrim.png`, `wolf.png`, crop frames, …). 32×32 tiles (or 16×16 displayed at `TILE`) keep the current grid.
+2. Set `USE_ART_PACK = true` in `lib/phaser/art.ts`.
+3. Leave texture *keys* (`tile-floor`, `sprite-pilgrim`, …) unchanged so scenes keep working.
+
+**Still old UI.** Pilgrim gate, class pick, basket, Old Bren price list, session log, chain stub, and the **Text view** copies of hearth/valley.
 
 **Still open.** Fishing/cooking minigames. Privy + live Amoy/USDC/NFT after the farm is fun. CBO: Vercel production URL + alanpafka.com/game.html blog wire.
