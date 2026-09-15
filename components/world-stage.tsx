@@ -1,22 +1,30 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, useCallback, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { plotStage } from "@/lib/crops";
 import type { WorldEvent } from "@/lib/phaser/bridge";
+import { preferredRenderer, type WorldRenderer } from "@/lib/three/engine";
 import type { PlayerState } from "@/lib/types";
 import { DialoguePanel } from "./dialogue-panel";
 import { GameHud } from "./game-hud";
 import { InventoryPanel } from "./inventory-panel";
 
+const loadingStage = (
+  <div className="world-stage grid place-items-center text-sm text-[var(--muted)]">Lighting the hearth…</div>
+);
+
 const PhaserCanvas = dynamic(() => import("./phaser-canvas"), {
   ssr: false,
-  loading: () => (
-    <div className="world-stage grid place-items-center text-sm text-[var(--muted)]">Lighting the hearth…</div>
-  ),
+  loading: () => loadingStage,
 });
 
-class PhaserGuard extends Component<{ onFail: () => void; children: ReactNode }, { failed: boolean }> {
+const IsoCanvas = dynamic(() => import("./iso-canvas"), {
+  ssr: false,
+  loading: () => loadingStage,
+});
+
+class CanvasGuard extends Component<{ onFail: () => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
@@ -68,14 +76,26 @@ export function WorldStage({
   onToggleInventory: (open?: boolean) => void;
   onToggleDialogue: (open?: boolean) => void;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [engine, setEngine] = useState<WorldRenderer>("iso");
+  const [isoFailed, setIsoFailed] = useState(false);
+  const [phaserFailed, setPhaserFailed] = useState(false);
+
+  useEffect(() => {
+    setEngine(preferredRenderer());
+  }, []);
 
   const onEvent = useCallback(
     (event: WorldEvent) => {
       switch (event.type) {
         case "fail":
-          setFailed(true);
-          onHint("The tiles would not light. The written hearth still stands.");
+          if (engine === "iso" && !isoFailed) {
+            setIsoFailed(true);
+            setEngine("phaser");
+            onHint("The isometric hearth stumbled. Classic tiles still stand — add ?view=phaser to start there.");
+          } else {
+            setPhaserFailed(true);
+            onHint("The tiles would not light. The written hearth still stands.");
+          }
           break;
         case "hint":
           onHint(event.text);
@@ -116,10 +136,12 @@ export function WorldStage({
           break;
       }
     },
-    [onDoor, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onToast, onToggleDialogue, onToggleInventory, onWolfDown],
+    [engine, isoFailed, onDoor, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onToast, onToggleDialogue, onToggleInventory, onWolfDown],
   );
 
-  if (failed) {
+  const usePhaser = engine === "phaser" || isoFailed;
+
+  if (phaserFailed) {
     return (
       <div className="game-frame">
         <TextSlice
@@ -143,9 +165,13 @@ export function WorldStage({
 
   return (
     <div className="game-frame">
-      <PhaserGuard onFail={() => onEvent({ type: "fail" })}>
-        <PhaserCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
-      </PhaserGuard>
+      <CanvasGuard key={usePhaser ? "phaser" : "iso"} onFail={() => onEvent({ type: "fail" })}>
+        {usePhaser ? (
+          <PhaserCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
+        ) : (
+          <IsoCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
+        )}
+      </CanvasGuard>
       <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} />
       {inventoryOpen ? (
         <>

@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { TILE, TILE_INDEX, tilesToData } from "./layout";
+import { CAMERA_ZOOM, TILE, TILE_INDEX, VIEW_HEIGHT, VIEW_WIDTH, tilesToData } from "./layout";
 
 export function createGround(scene: Phaser.Scene, tiles: readonly string[]) {
   const map = scene.make.tilemap({
@@ -23,8 +23,10 @@ export function createGround(scene: Phaser.Scene, tiles: readonly string[]) {
 export function followActor(scene: Phaser.Scene, target: Phaser.GameObjects.Image, map: readonly string[]) {
   const cam = scene.cameras.main;
   cam.setBounds(0, 0, (map[0]?.length ?? 0) * TILE, map.length * TILE);
-  cam.startFollow(target, true, 0.16, 0.16);
-  cam.setDeadzone(28, 22);
+  cam.setZoom(CAMERA_ZOOM);
+  cam.startFollow(target, true, 0.14, 0.14);
+  // Wide deadzone so cottage + garden stay on screen while walking the hearth.
+  cam.setDeadzone(Math.floor(VIEW_WIDTH * 0.28), Math.floor(VIEW_HEIGHT * 0.22));
   cam.setRoundPixels(true);
 }
 
@@ -32,7 +34,7 @@ export function label(scene: Phaser.Scene, x: number, y: number, text: string) {
   return scene.add
     .text(x, y, text, {
       fontFamily: "Georgia, serif",
-      fontSize: "11px",
+      fontSize: "12px",
       color: "#2c241c",
       backgroundColor: "#f3efe4",
       padding: { x: 4, y: 2 },

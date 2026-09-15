@@ -6,6 +6,8 @@ Hearth first. A baker on the path. A wolf at the forest edge. Fun before chain (
 
 North star: *A world people would inhabit if every token were worth zero.*
 
+The playable door is an **isometric Three.js** hearth (WASD + click-to-move). Classic top-down tiles remain at `?view=phaser`.
+
 ## Run locally
 
 ```bash
@@ -48,13 +50,13 @@ No Vercel project is linked from this environment (CLI logged out; MCP needs aut
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for scene hierarchy, data models, and the state machine.
 
-**Stack.** Next.js 16 + Phaser 3.90, top-down (not isometric, not Three.js). Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`, with a written fallback if WebGL misses.
+**Stack.** Next.js 16 + Three.js / React Three Fiber (orthographic isometric, default) with Phaser 3.90 as a zoomed-out tile fallback (`?view=phaser`). Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`. If WebGL misses, Phaser loads; if that misses too, a written hearth remains.
 
-**World.** Hearth cottage (south) and valley path (north) are separate Phaser scenes with a following camera. Maps are 24 tiles wide; the viewport is 640×448.
+**World.** Hearth cottage (south) and valley path (north). Maps are 32 tiles wide with east/south padding; the viewport is **896×576** (~1.8× the old 640×448), so cottage + garden + path read as a place, not a close-up. Same furniture, three plots, Old Bren, door, one wolf, Wolf Pelt.
 
 **Combat.** One wolf at the forest edge. Click to close and auto-attack (3 damage vs 12 HP). No pack, no dire wolf, no Strike button.
 
-**Art-pack swap.** Placeholders are generated in BootScene. To replace them:
+**Art-pack swap.** Phaser placeholders are generated in BootScene. To replace them:
 
 1. Drop PNGs in `public/game/art/` using the filenames in `lib/phaser/art.ts`.
 2. Ground tiles, in tileset order: `grass.png`, `path.png`, `floor.png`, `creek.png`, `wall.png`, `door-tile.png`, `forest.png`.

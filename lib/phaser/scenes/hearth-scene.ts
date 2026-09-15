@@ -15,7 +15,7 @@ import {
   tileFromWorld,
   worldCenter,
 } from "../layout";
-import { slide, stepToward } from "../move";
+import { hearthRoute, slide, stepToward } from "../move";
 import { consumeInteract, windowAxis } from "../keys";
 import { PLAYER_SPEED } from "../wolf-ai";
 
@@ -36,6 +36,7 @@ export class HearthScene extends Phaser.Scene {
   private marker!: Phaser.GameObjects.Image;
   private fireGlow!: Phaser.GameObjects.Image;
   private dest = { x: 0, y: 0 };
+  private path: { x: number; y: number }[] = [];
   private job: Job | null = null;
   private moving = false;
   private usedDoor = false;
@@ -175,13 +176,16 @@ export class HearthScene extends Phaser.Scene {
   }
 
   private walkTo(pos: { x: number; y: number }, job: Job | null) {
-    this.dest = pos;
+    const route = hearthRoute(this.pilgrim.x, this.pilgrim.y, pos.x, pos.y);
+    this.path = route.slice(1);
+    this.dest = route[0] ?? pos;
     this.job = job;
     this.moving = true;
     this.marker.setPosition(pos.x, pos.y).setVisible(true);
     this.pilgrim.setFlipX(pos.x < this.pilgrim.x);
     if (Math.hypot(this.pilgrim.x - pos.x, this.pilgrim.y - pos.y) < REACH) {
       this.moving = false;
+      this.path = [];
       this.marker.setVisible(false);
       this.doJob();
     }
@@ -286,6 +290,7 @@ export class HearthScene extends Phaser.Scene {
     if (axis.x !== 0 || axis.y !== 0) {
       this.moving = false;
       this.job = null;
+      this.path = [];
       this.marker.setVisible(false);
       const len = Math.hypot(axis.x, axis.y) || 1;
       const next = slide(
@@ -303,12 +308,24 @@ export class HearthScene extends Phaser.Scene {
       const slid = slide(HEARTH_TILES, prevX, prevY, next.x, next.y);
       this.pilgrim.setPosition(slid.x, slid.y).setFlipX(this.dest.x < prevX);
       if (next.arrived) {
-        this.moving = false;
-        this.marker.setVisible(false);
-        this.doJob();
+        const stop = this.path.shift();
+        if (stop) {
+          this.dest = stop;
+          this.moving = true;
+        } else {
+          this.moving = false;
+          this.marker.setVisible(false);
+          this.doJob();
+        }
       } else if (slid.x === prevX && slid.y === prevY) {
-        this.moving = false;
-        this.marker.setVisible(false);
+        const stop = this.path.shift();
+        if (stop) {
+          this.dest = stop;
+          this.moving = true;
+        } else {
+          this.moving = false;
+          this.marker.setVisible(false);
+        }
       }
     }
 

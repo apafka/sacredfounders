@@ -1,16 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CAMERA_ZOOM,
   COLS,
   HEARTH_PLOTS,
   HEARTH_SPOTS,
   HEARTH_TILES,
+  LEGACY_VIEW_HEIGHT,
+  LEGACY_VIEW_WIDTH,
   TILE,
   TILESET_KEYS,
   TILE_CHARS,
   TILE_INDEX,
   VALLEY_SPOTS,
   VALLEY_TILES,
+  VIEW_COLS,
+  VIEW_HEIGHT,
+  VIEW_ROWS,
+  VIEW_WIDTH,
+  expandTileMap,
   inBounds,
   isDoorTile,
   isWalkable,
@@ -20,11 +28,36 @@ import {
 
 test("hearth and valley maps are rectangular and wider than the view", () => {
   assert.equal(TILE, 32);
-  assert.equal(COLS, 24);
+  assert.equal(COLS, 32);
   assert.ok(HEARTH_TILES.every((row) => row.length === COLS));
   assert.ok(VALLEY_TILES.every((row) => row.length === COLS));
-  assert.ok(HEARTH_TILES.length >= 14);
-  assert.ok(VALLEY_TILES.length >= 14);
+  assert.ok(HEARTH_TILES.length >= VIEW_ROWS);
+  assert.ok(VALLEY_TILES.length >= VIEW_ROWS);
+});
+
+test("viewport shows about 1.6–2× more world than the 640×448 slice", () => {
+  assert.equal(VIEW_COLS, 28);
+  assert.equal(VIEW_ROWS, 18);
+  assert.equal(VIEW_WIDTH, 896);
+  assert.equal(VIEW_HEIGHT, 576);
+  assert.equal(CAMERA_ZOOM, 1);
+  const area = VIEW_WIDTH * VIEW_HEIGHT;
+  const legacy = LEGACY_VIEW_WIDTH * LEGACY_VIEW_HEIGHT;
+  assert.equal(legacy, 640 * 448);
+  assert.ok(area >= legacy * 1.6, `visible area ${area} should be ≥ 1.6× ${legacy}`);
+  assert.ok(area <= legacy * 2.05, `visible area ${area} should stay ≤ 2.05× so tiles remain readable`);
+});
+
+test("expandTileMap pads east and south without moving existing cells", () => {
+  const src = ["####", "#=D#", "#,,#", "####"];
+  const grown = expandTileMap(src, 6, 6);
+  assert.equal(grown.length, 6);
+  assert.ok(grown.every((row) => row.length === 6));
+  assert.equal(grown[0], "######");
+  assert.equal(grown[1][1], "=");
+  assert.equal(grown[1][2], "D");
+  assert.equal(grown[1][3], ",");
+  assert.equal(grown[5], "######");
 });
 
 test("hearth has three garden plots, cottage furniture pads, baker, and a door", () => {
