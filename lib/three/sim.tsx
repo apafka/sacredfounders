@@ -4,7 +4,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as THREE from "three";
 import { PLAYER_MAX_HP } from "@/lib/combat";
-import { plotStage } from "@/lib/crops";
+import { plotReady, plotStage } from "@/lib/crops";
 import { CROP_META, type Scene } from "@/lib/types";
 import type { WorldBridge } from "@/lib/phaser/bridge";
 import { consumeInteract, windowAxis } from "@/lib/phaser/keys";
@@ -202,12 +202,12 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
         puff(look.current.x, look.current.z, "Planted", "#c4a35a");
         return;
       }
-      const stage = plot.plantedAt != null ? plotStage(plot.plantedAt, plot.crop, Date.now()) : "empty";
-      if (stage === "ready") {
+      if (plot.plantedAt != null && plotReady(plot.plantedAt, plot.crop, player.skills.farming.xp, Date.now())) {
         bridge.emit({ type: "harvest", plotId: next.plotId });
         puff(look.current.x, look.current.z, "Harvested", "#c4a35a");
       } else {
-        bridge.emit({ type: "hint", text: `${CROP_META[plot.crop].name} is still growing.` });
+        const stage = plot.plantedAt != null ? plotStage(plot.plantedAt, plot.crop, Date.now()) : "empty";
+        bridge.emit({ type: "hint", text: `${CROP_META[plot.crop].name} is still ${stage}.` });
       }
       return;
     }
@@ -346,7 +346,10 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
         walkTo(worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row), { kind: "door" });
         return;
       }
-      const plot = HEARTH_PLOTS.find((item) => item.col === col && item.row === row);
+      const plot = HEARTH_PLOTS.find((item) => {
+        const pos = worldCenter(item.col, item.row);
+        return Math.hypot(px.x - pos.x, px.y - pos.y) < TILE * 0.9;
+      });
       if (plot) {
         walkTo(worldCenter(plot.col, plot.row), { kind: "plot", plotId: plot.id });
         return;

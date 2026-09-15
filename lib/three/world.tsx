@@ -174,6 +174,10 @@ export function HearthWorld({
           >
             <SoilBed position={[0, 0, 0]} />
             {stage !== "empty" ? <WheatStalk stage={stage} /> : null}
+            <mesh position={[0, 0.45, 0]}>
+              <boxGeometry args={[1.05, 0.95, 1.05]} />
+              <meshBasicMaterial transparent opacity={0.02} depthWrite={false} />
+            </mesh>
           </group>
         );
       })}

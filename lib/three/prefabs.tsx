@@ -221,8 +221,8 @@ export function DoorProp({ position }: { position: [number, number, number] }) {
 export function SoilBed({ position }: { position: [number, number, number] }) {
   return (
     <mesh position={position} receiveShadow>
-      <boxGeometry args={[0.82, 0.1, 0.82]} />
-      <meshStandardMaterial color={PALETTE.soil} {...mat} />
+      <boxGeometry args={[0.88, 0.14, 0.88]} />
+      <meshStandardMaterial color={PALETTE.soil} roughness={0.88} metalness={0.02} />
     </mesh>
   );
 }
