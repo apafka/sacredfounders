@@ -16,9 +16,11 @@ import {
   worldCenter,
 } from "../layout";
 import { slide, stepToward } from "../move";
+import { consumeInteract, windowAxis } from "../keys";
 import { PLAYER_SPEED } from "../wolf-ai";
 
-const REACH = 22;
+const REACH = 28;
+const INTERACT = 36;
 
 type Job =
   | { kind: "plot"; plotId: number }
@@ -102,7 +104,23 @@ export class HearthScene extends Phaser.Scene {
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
     this.keys = bindWalkKeys(this);
+    this.game.canvas.setAttribute("tabindex", "0");
+    this.game.canvas.focus();
     this.syncCrops();
+  }
+
+  private jobPos(job: Job): { x: number; y: number } {
+    if (job.kind === "plot") {
+      const plot = HEARTH_PLOTS.find((item) => item.id === job.plotId) ?? HEARTH_PLOTS[0];
+      return worldCenter(plot.col, plot.row);
+    }
+    const spot = HEARTH_SPOTS[job.kind];
+    return worldCenter(spot.col, spot.row);
+  }
+
+  private inRange(job: Job): boolean {
+    const pos = this.jobPos(job);
+    return Math.hypot(this.pilgrim.x - pos.x, this.pilgrim.y - pos.y) < INTERACT;
   }
 
   private furniture(): { spot: { col: number; row: number }; job: Job; radius: number }[] {
@@ -255,7 +273,16 @@ export class HearthScene extends Phaser.Scene {
     this.fireGlow.setScale(1 + Math.sin(_time / 140) * 0.08);
 
     const dt = delta / 1000;
-    const axis = readAxis(this.keys);
+    if (this.job && this.inRange(this.job)) {
+      this.moving = false;
+      this.marker.setVisible(false);
+      this.doJob();
+    }
+
+    const axisPhaser = readAxis(this.keys);
+    const axisWin = windowAxis();
+    const axis =
+      axisWin.x !== 0 || axisWin.y !== 0 ? axisWin : axisPhaser;
     if (axis.x !== 0 || axis.y !== 0) {
       this.moving = false;
       this.job = null;
@@ -287,7 +314,7 @@ export class HearthScene extends Phaser.Scene {
 
     this.pilgrim.setDepth(10 + this.pilgrim.y);
 
-    if (this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+    if ((this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) || consumeInteract()) {
       const job = this.nearestJob();
       if (job) {
         this.job = job;

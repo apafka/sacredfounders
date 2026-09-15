@@ -103,7 +103,7 @@ export function GameShell() {
       return;
     }
     commit(next.player, next.message, cookie);
-    if (next.message.startsWith("+") || next.message.includes("Pelt") || next.message.includes("Harvested")) {
+    if (next.message.startsWith("+") || next.message.includes("Pelt") || next.message.includes("Harvested") || next.message.includes("Planted")) {
       setToast(next.message);
     }
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { WorldBridge, WorldEvent } from "@/lib/phaser/bridge";
+import { installWindowKeys } from "@/lib/phaser/keys";
 import type { CropId, PlayerState } from "@/lib/types";
 
 type GameHandle = {
@@ -64,11 +65,13 @@ export default function PhaserCanvas({
 
     const ro = new ResizeObserver(() => gameRef.current?.scale.refresh());
     ro.observe(parent);
+    const unbindKeys = installWindowKeys();
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
       ro.disconnect();
+      unbindKeys();
       game?.destroy(true);
       gameRef.current = null;
       parent.replaceChildren();

@@ -24,6 +24,7 @@ import {
   worldCenter,
 } from "../layout";
 import { slide, stepToward } from "../move";
+import { consumeInteract, windowAxis } from "../keys";
 import {
   ATTACK_RANGE,
   PLAYER_ATTACK_MS,
@@ -132,6 +133,8 @@ export class ValleyScene extends Phaser.Scene {
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
     this.keys = bindWalkKeys(this);
+    this.game.canvas.setAttribute("tabindex", "0");
+    this.game.canvas.focus();
   }
 
   private onTap(x: number, y: number) {
@@ -271,7 +274,7 @@ export class ValleyScene extends Phaser.Scene {
       }
     }
 
-    if (this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+    if ((this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) || consumeInteract()) {
       if (this.peltSprite.visible && Math.hypot(this.body.x - this.peltSprite.x, this.body.y - this.peltSprite.y) < TILE * 1.4) {
         this.takePelt();
       } else if (this.wolf.hp > 0 && Math.hypot(this.body.x - this.wolf.x, this.body.y - this.wolf.y) < STRIKE_RANGE) {
@@ -280,7 +283,9 @@ export class ValleyScene extends Phaser.Scene {
       }
     }
 
-    const axis = readAxis(this.keys);
+    const axisWin = windowAxis();
+    const axisKeys = readAxis(this.keys);
+    const axis = axisWin.x !== 0 || axisWin.y !== 0 ? axisWin : axisKeys;
     if (axis.x !== 0 || axis.y !== 0) {
       this.hunting = false;
       this.moving = false;
