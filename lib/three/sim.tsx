@@ -21,7 +21,7 @@ import {
   tileFromWorld,
   worldCenter,
 } from "@/lib/phaser/layout";
-import { slide, stepToward } from "@/lib/phaser/move";
+import { hearthRoute, slide, stepToward } from "@/lib/phaser/move";
 import {
   ATTACK_RANGE,
   PLAYER_ATTACK_MS,
@@ -92,6 +92,7 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
   const look = useRef(startWorld);
   const body = useRef({ x: boot.start.x, y: boot.start.y, hp: boot.player.health || PLAYER_MAX_HP });
   const dest = useRef({ x: boot.start.x, y: boot.start.y });
+  const waypoints = useRef<{ x: number; y: number }[]>([]);
   const moving = useRef(false);
   const hunting = useRef(false);
   const job = useRef<HearthJob | null>(null);
@@ -169,15 +170,20 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
   };
 
   const walkTo = (px: number, py: number, nextJob: HearthJob | null = null) => {
-    dest.current = { x: px, y: py };
+    const route =
+      scene === "hearth" ? hearthRoute(body.current.x, body.current.y, px, py) : [{ x: px, y: py }];
+    const first = route[0] ?? { x: px, y: py };
+    waypoints.current = route.slice(1);
+    dest.current = first;
     job.current = nextJob;
     moving.current = true;
     hunting.current = false;
-    flipped.current = px < body.current.x;
+    flipped.current = first.x < body.current.x;
     const w = pxToWorld(px, py);
     setMarker({ x: w.x, z: w.z, on: true });
     if (Math.hypot(body.current.x - px, body.current.y - py) < REACH_HEARTH) {
       moving.current = false;
+      waypoints.current = [];
       setMarker((m) => ({ ...m, on: false }));
       if (nextJob) runHearthJob(nextJob);
     }
@@ -410,6 +416,7 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       moving.current = false;
       hunting.current = false;
       job.current = null;
+      waypoints.current = [];
       setMarker((m) => (m.on ? { ...m, on: false } : m));
       const next = slide(
         tiles,
@@ -439,12 +446,24 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       body.current.x = slid.x;
       body.current.y = slid.y;
       if (stepped.arrived) {
-        moving.current = false;
-        setMarker((m) => ({ ...m, on: false }));
-        if (job.current) runHearthJob(job.current);
+        const nextStop = waypoints.current.shift();
+        if (nextStop) {
+          dest.current = nextStop;
+          moving.current = true;
+        } else {
+          moving.current = false;
+          setMarker((m) => ({ ...m, on: false }));
+          if (job.current) runHearthJob(job.current);
+        }
       } else if (slid.x === prevX && slid.y === prevY) {
-        moving.current = false;
-        setMarker((m) => ({ ...m, on: false }));
+        const nextStop = waypoints.current.shift();
+        if (nextStop) {
+          dest.current = nextStop;
+          moving.current = true;
+        } else {
+          moving.current = false;
+          setMarker((m) => ({ ...m, on: false }));
+        }
       }
     }
 
