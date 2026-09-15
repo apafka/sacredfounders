@@ -103,18 +103,18 @@ export const HEARTH_SPOTS = {
   bed: { col: 8, row: 9 },
   chest: { col: 12, row: 8 },
   workbench: { col: 14, row: 8 },
-  bren: { col: 16, row: 12 },
+  bren: { col: 13, row: 4 },
   door: { col: 17, row: 13 },
   spawn: { col: 6, row: 8 },
 } as const;
 
 export const VALLEY_SPOTS = {
-  spawn: { col: 16, row: 14 },
-  wolf: { col: 12, row: 3 },
+  spawn: { col: 16, row: 13 },
+  wolf: { col: 10, row: 5 },
   door: { col: 17, row: 14 },
-  tracks: { col: 12, row: 11 },
+  tracks: { col: 12, row: 9 },
   scale: { col: 8, row: 6 },
-  carving: { col: 10, row: 12 },
+  carving: { col: 10, row: 11 },
 } as const;
 
 export const VALLEY_TREES: Spot[] = [

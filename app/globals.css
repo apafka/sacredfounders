@@ -210,6 +210,12 @@ h2 {
   border: 1px solid #d7cfc0;
 }
 
+.hud-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 .hud-health,
 .hud-gold {
   display: flex;

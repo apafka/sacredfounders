@@ -96,7 +96,7 @@ export class HearthScene extends Phaser.Scene {
 
     this.bridge().emit({
       type: "hint",
-      text: "This is your hearth. WASD or click to walk. The garden, Old Bren, and the north path are all close.",
+      text: "This is your hearth. WASD or click to walk. Garden and Old Bren are just outside. The path leaves east.",
     });
 
     this.input.setDefaultCursor("pointer");
@@ -119,6 +119,11 @@ export class HearthScene extends Phaser.Scene {
   private onTap(x: number, y: number) {
     const { col, row } = tileFromWorld(x, y);
     if (!isWalkable(tileAt(HEARTH_TILES, col, row))) return;
+
+    if (isDoorTile(tileAt(HEARTH_TILES, col, row))) {
+      this.walkTo(worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row), { kind: "door" });
+      return;
+    }
 
     const plot = HEARTH_PLOTS.find((p) => p.col === col && p.row === row);
     if (plot) {

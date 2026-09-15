@@ -89,7 +89,7 @@ export class ValleyScene extends Phaser.Scene {
     const doorPos = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
     this.add.image(doorPos.x, doorPos.y, "sprite-door").setDepth(3);
     label(this, doorPos.x, doorPos.y - 20, "Home");
-    label(this, worldCenter(12, 2).x, worldCenter(12, 2).y - 10, "Forest");
+    label(this, worldCenter(10, 4).x, worldCenter(10, 4).y - 18, "Forest edge");
 
     const player = this.bridge().getPlayer();
     const spawn = player.position && player.scene === "valley"

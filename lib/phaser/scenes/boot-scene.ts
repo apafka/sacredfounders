@@ -37,11 +37,11 @@ function crop(scene: Phaser.Scene, key: string, fill: number, h: number) {
 function person(scene: Phaser.Scene, key: string, body: number, head: number, extra?: (g: Phaser.GameObjects.Graphics) => void) {
   const g = gfx(scene);
   g.fillStyle(body, 1);
-  g.fillRect(4, 10, 12, 14);
+  g.fillRect(6, 14, 16, 18);
   g.fillStyle(head, 1);
-  g.fillRect(5, 3, 10, 9);
+  g.fillRect(8, 4, 12, 12);
   extra?.(g);
-  g.generateTexture(key, 20, 24);
+  g.generateTexture(key, 28, 32);
   g.destroy();
 }
 
@@ -134,9 +134,11 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
 
   const planted = gfx(scene);
   planted.fillStyle(0x6b5344, 1);
-  planted.fillRect(12, 20, 8, 6);
+  planted.fillRect(8, 18, 16, 10);
   planted.fillStyle(C.grainPlanted, 1);
-  planted.fillRect(14, 16, 4, 6);
+  planted.fillRect(12, 10, 8, 12);
+  planted.fillStyle(0x9aaa6a, 1);
+  planted.fillRect(14, 6, 4, 6);
   planted.generateTexture("crop-grain-planted", TILE, TILE);
   planted.destroy();
 
@@ -147,19 +149,19 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
   person(scene, "sprite-pilgrim", C.pilgrim, C.pilgrimHead);
   person(scene, "sprite-bren", 0x6a3a28, 0xc4a07a, (g) => {
     g.fillStyle(0xf3efe4, 1);
-    g.fillRect(3, 14, 14, 8);
+    g.fillRect(4, 18, 20, 10);
   });
 
   const wolf = gfx(scene);
   wolf.fillStyle(0x3d2a1c, 1);
-  wolf.fillRect(4, 8, 22, 12);
-  wolf.fillRect(0, 10, 8, 8);
-  wolf.fillRect(22, 2, 8, 10);
+  wolf.fillRect(6, 12, 28, 16);
+  wolf.fillRect(0, 14, 10, 10);
+  wolf.fillRect(28, 4, 10, 14);
   wolf.fillStyle(0x8a6a4a, 1);
-  wolf.fillRect(6, 10, 6, 4);
+  wolf.fillRect(10, 14, 8, 5);
   wolf.fillStyle(0xd7cfc0, 0.9);
-  wolf.fillRect(2, 12, 3, 2);
-  wolf.generateTexture("sprite-wolf", 30, 22);
+  wolf.fillRect(3, 16, 4, 3);
+  wolf.generateTexture("sprite-wolf", 40, 28);
   wolf.destroy();
 
   prop(scene, "sprite-bed", 28, 16, 0x7a4a38, (g) => {

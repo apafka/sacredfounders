@@ -19,14 +19,21 @@ export function GameHud({
   return (
     <div className="game-hud">
       <div className="hud-top">
-        <div className="hud-health" title="Health">
-          <span>Health</span>
-          <div className="hp-track">
-            <div className="hp-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
+        <div className="hud-cluster">
+          <div className="hud-health" title="Health">
+            <span>Health</span>
+            <div className="hp-track">
+              <div className="hp-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
+            </div>
+            <em>
+              {hp}/{player.maxHealth}
+            </em>
           </div>
-          <em>
-            {hp}/{player.maxHealth}
-          </em>
+          <p className="hud-skills">
+            Farming {player.skills.farming.level}
+            <span> · </span>
+            Combat {player.skills.combat.level}
+          </p>
         </div>
         <div className="hud-gold">
           Gold <strong>{player.coins}</strong>
@@ -34,11 +41,6 @@ export function GameHud({
       </div>
       {toast ? <p className="hud-toast">{toast}</p> : null}
       <div className="hud-bottom">
-        <p className="hud-skills">
-          Farming {player.skills.farming.level}
-          <span> · </span>
-          Combat {player.skills.combat.level}
-        </p>
         {hint ? <p className="hud-hint">{hint}</p> : <p className="hud-hint">WASD / click. E interact. I pack.</p>}
         <button className="btn-tiny" type="button" onClick={onInventory}>
           Pack (I)
