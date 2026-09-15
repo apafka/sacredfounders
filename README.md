@@ -2,7 +2,9 @@
 
 Public door: **[alanpafka.com/game.html](https://alanpafka.com/game.html)** (CBO wires deploy + blog). This repo is the playable app. Do not block on sacredfounders.com DNS.
 
-Hearth first. Door to the valley. Fun before chain (Polygon + USDC + NFT behind `ENABLE_CHAIN`, off).
+Hearth first. A baker on the path. A wolf at the forest edge. Fun before chain (Polygon + USDC + NFT behind `ENABLE_CHAIN`, off).
+
+North star: *A world people would inhabit if every token were worth zero.*
 
 ## Run locally
 
@@ -18,15 +20,18 @@ npm test
 npm run build
 ```
 
-## Loop (this branch)
+## Loop (V1 vertical slice)
 
-1. Pilgrim Gate — no wallet modal. Cookie `sf_pilgrim` survives refresh. **Still the old text UI.**
-2. Class — **Fighter** or **Spiritual**. Persists. **Still the old text UI.**
-3. Hearth — Phaser 3 top-down **tilemap** (tap/click to walk). Spawn at the hearth. Garden beds plant/harvest; creek **fish**; kitchen **loaf**; walk to **Old Bren** to open sell. Same `/api/game` actions.
-4. Door — walk the door tile hearth ↔ valley. Valley: grass/path, three wolves + a dire wolf (multi-hit), HP bars, ~25s respawn, +xp. Old Bren sells an **Iron Blade** for 12 coins (harder Strike). Walls collide.
-5. Chain — `POST /api/chain`. `ENABLE_CHAIN=false` by default.
-
-If Phaser fails to boot, the written hearth and valley stay available (**Text view**). Basket, Old Bren prices, and the session log remain HTML overlays.
+1. Spawn at the hearth — bed, fireplace, chest, workbench, door. Warm cottage, garden just outside.
+2. Three farm plots. Start with 3 wheat seeds. Plant → grow ~45s with visual stages → harvest → Farming XP.
+3. Walk to **Old Bren** (a baker, not a shop UI). Short dialogue.
+4. Sell wheat → **+6 Gold** for three sheaves.
+5. Path through the door to the forest edge. One wolf.
+6. Click the wolf → auto-attack, HP bars, damage numbers, death.
+7. Wolf Pelt drops. Click it → inventory + Combat XP.
+8. HUD: health, gold, pack (I), Farming + Combat. No wallet, marketplace, or chain copy.
+9. `GamePersistence` saves position, gold, inventory, skills, and crops to localStorage. Pilgrim cookie `sf_pilgrim` still identifies the session.
+10. Dragon is presence only: tracks, a scale, a carving, Bren's rumor.
 
 ## Deploy (CBO)
 
@@ -41,23 +46,19 @@ No Vercel project is linked from this environment (CLI logged out; MCP needs aut
 
 ## DEV NOTES
 
-**Found.** `apafka/sacredfounders` had no prior Dragon World tree. Prior cloud branches were not on this remote.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for scene hierarchy, data models, and the state machine.
 
-**Merged.** One Next.js tree: pilgrim → Fighter/Spiritual → garden / fish / cook → Old Bren → valley wolf. No second game.
+**Stack.** Next.js 16 + Phaser 3.90, top-down (not isometric, not Three.js). Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`, with a written fallback if WebGL misses.
 
-**2D slice.** Phaser 3.90, top-down (not isometric). Warm temple palette. Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`, and a text fallback so a WebGL/canvas miss does not brick the app.
+**World.** Hearth cottage (south) and valley path (north) are separate Phaser scenes with a following camera. Maps are 24 tiles wide; the viewport is 640×448.
 
-**Tilemap v0.** One 20×28 world in `lib/phaser/layout.ts`: valley (north 14 rows) + hearth (south 14 rows). Each scene mounts its slice as a Phaser Tilemap: grass, path, hearth interior, creek, wall, door. Border walls collide; the door tile stays walkable and still posts `/api/game` `door`. Colored placeholder tiles are generated in BootScene.
+**Combat.** One wolf at the forest edge. Click to close and auto-attack (3 damage vs 12 HP). No pack, no dire wolf, no Strike button.
 
-**Combat v0.** Three pack wolves + one dire wolf. Soft XP (+15 / +40), level every 50 xp, persisted on the pilgrim cookie. Kills still grant coins via `/api/game` `wolf-loot`. Iron Blade is a Bren buy (`buy-sword`). ENABLE_CHAIN stays off.
+**Art-pack swap.** Placeholders are generated in BootScene. To replace them:
 
-**Art-pack swap.** Placeholders are colored rectangles generated in `lib/phaser/scenes/boot-scene.ts`. To replace them with real pixels:
-
-1. Drop 32×32 (or 16×16 displayed at `TILE`) PNGs in `public/game/art/` using the filenames in `lib/phaser/art.ts`.
-2. Ground tiles, in tileset order: `grass.png`, `path.png`, `floor.png` (hearth interior), `creek.png`, `wall.png`, `door-tile.png`. BootScene stitches those into the Phaser tileset key `world-tiles`. Sprites stay separate (`pilgrim.png`, `wolf.png`, `door.png` for the door prop, crop frames, …).
+1. Drop PNGs in `public/game/art/` using the filenames in `lib/phaser/art.ts`.
+2. Ground tiles, in tileset order: `grass.png`, `path.png`, `floor.png`, `creek.png`, `wall.png`, `door-tile.png`, `forest.png`.
 3. Set `USE_ART_PACK = true` in `lib/phaser/art.ts`.
-4. Leave texture *keys* (`tile-grass`, `world-tiles`, `sprite-pilgrim`, …) unchanged so scenes keep working.
+4. Leave texture keys unchanged.
 
-**Still old UI.** Pilgrim gate, class pick, basket, Old Bren price list, session log, chain stub, and the **Text view** copies of hearth/valley.
-
-**Still open.** Fishing/cooking minigames. Privy + live Amoy/USDC/NFT after the farm is fun. CBO: Vercel production URL + alanpafka.com/game.html blog wire.
+**Out of slice.** Class pick, fishing, cooking, Iron Blade shop, wallet/Privy UI, marketplace, chain. `ENABLE_CHAIN` stays off. Files may still exist as stubs.

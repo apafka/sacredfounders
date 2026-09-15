@@ -2,12 +2,10 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { WorldBridge, WorldEvent } from "@/lib/phaser/bridge";
-import { queueValleyStrike } from "@/lib/phaser/bridge";
 import type { CropId, PlayerState } from "@/lib/types";
 
 type GameHandle = {
   destroy: (removeCanvas: boolean, noReturn?: boolean) => void;
-  events: { emit: (event: string) => void };
   scale: { refresh: () => void };
   scene: {
     isActive: (key: string) => boolean;
@@ -20,13 +18,11 @@ export default function PhaserCanvas({
   player,
   seed,
   busy,
-  strikeTick,
   onEvent,
 }: {
   player: PlayerState;
   seed: CropId;
   busy: boolean;
-  strikeTick: number;
   onEvent: (event: WorldEvent) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -90,18 +86,12 @@ export default function PhaserCanvas({
     game.scene.start(want);
   }, [player.scene]);
 
-  useEffect(() => {
-    if (!strikeTick) return;
-    queueValleyStrike();
-    gameRef.current?.events.emit("valley-strike");
-  }, [strikeTick]);
-
   return (
     <div
       ref={parentRef}
       className="world-stage"
       role="application"
-      aria-label={player.scene === "valley" ? "Northern hills" : "Hearth"}
+      aria-label={player.scene === "valley" ? "Forest path" : "Hearth"}
     />
   );
 }

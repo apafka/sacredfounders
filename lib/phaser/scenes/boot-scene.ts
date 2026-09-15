@@ -7,49 +7,41 @@ function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   return new Phaser.GameObjects.Graphics(scene);
 }
 
-function tile(scene: Phaser.Scene, key: string, fill: number, edge: number) {
+function tile(scene: Phaser.Scene, key: string, fill: number, edge: number, paint?: (g: Phaser.GameObjects.Graphics) => void) {
   const g = gfx(scene);
   g.fillStyle(fill, 1);
   g.fillRect(0, 0, TILE, TILE);
   g.lineStyle(1, edge, 0.9);
   g.strokeRect(1, 1, TILE - 2, TILE - 2);
-  g.fillStyle(edge, 0.18);
-  g.fillRect(TILE - 6, TILE - 6, 5, 5);
+  paint?.(g);
   g.generateTexture(key, TILE, TILE);
   g.destroy();
 }
 
-function crop(scene: Phaser.Scene, key: string, fill: number, tall: boolean) {
+function crop(scene: Phaser.Scene, key: string, fill: number, h: number) {
   const g = gfx(scene);
-  const h = tall ? 22 : 12;
   const y = TILE - 4 - h;
   g.fillStyle(0x6b5344, 1);
   g.fillRect(10, TILE - 8, 12, 6);
   g.fillStyle(fill, 1);
-  g.fillRect(8, y, 16, h);
+  g.fillRect(11, y, 10, h);
+  if (h > 14) {
+    g.fillStyle(0xd4c46a, 1);
+    g.fillRect(9, y - 2, 4, 4);
+    g.fillRect(19, y, 4, 4);
+  }
   g.generateTexture(key, TILE, TILE);
   g.destroy();
 }
 
-function pilgrim(scene: Phaser.Scene) {
+function person(scene: Phaser.Scene, key: string, body: number, head: number, extra?: (g: Phaser.GameObjects.Graphics) => void) {
   const g = gfx(scene);
-  g.fillStyle(C.pilgrim, 1);
-  g.fillRect(3, 8, 10, 12);
-  g.fillStyle(C.pilgrimHead, 1);
-  g.fillRect(4, 2, 8, 8);
-  g.generateTexture("sprite-pilgrim", 16, 20);
-  g.destroy();
-}
-
-function wolf(scene: Phaser.Scene) {
-  const g = gfx(scene);
-  g.fillStyle(0x3d2a1c, 1);
-  g.fillRect(4, 8, 22, 12);
-  g.fillRect(0, 10, 8, 8);
-  g.fillRect(22, 2, 8, 10);
-  g.fillStyle(0x8a6a4a, 1);
-  g.fillRect(6, 10, 6, 4);
-  g.generateTexture("sprite-wolf", 30, 22);
+  g.fillStyle(body, 1);
+  g.fillRect(4, 10, 12, 14);
+  g.fillStyle(head, 1);
+  g.fillRect(5, 3, 10, 9);
+  extra?.(g);
+  g.generateTexture(key, 20, 24);
   g.destroy();
 }
 
@@ -73,6 +65,7 @@ function worldTilesetStrip(scene: Phaser.Scene) {
     "tile-creek": [C.creek, C.creekEdge],
     "tile-wall": [C.wall, C.wallEdge],
     "tile-door": [C.doorTile, C.doorTileEdge],
+    "tile-forest": [C.forest, C.forestEdge],
   };
   TILESET_KEYS.forEach((key, i) => {
     const [fill, edge] = swatches[key];
@@ -81,8 +74,6 @@ function worldTilesetStrip(scene: Phaser.Scene) {
     g.fillRect(x, 0, TILE, TILE);
     g.lineStyle(1, edge, 0.9);
     g.strokeRect(x + 1, 1, TILE - 2, TILE - 2);
-    g.fillStyle(edge, 0.18);
-    g.fillRect(x + TILE - 6, TILE - 6, 5, 5);
     if (key === "tile-path") {
       g.fillStyle(0xe8dcc0, 0.45);
       g.fillRect(x + 6, 12, TILE - 12, 8);
@@ -91,6 +82,15 @@ function worldTilesetStrip(scene: Phaser.Scene) {
       g.fillStyle(0xc4a35a, 1);
       g.fillRect(x + 20, 14, 5, 5);
     }
+    if (key === "tile-forest") {
+      g.fillStyle(0x2c241c, 0.22);
+      g.fillRect(x + 8, 6, 6, 18);
+    }
+    if (key === "tile-grass") {
+      g.fillStyle(0xb39d74, 0.35);
+      g.fillRect(x + 7, 18, 3, 3);
+      g.fillRect(x + 18, 9, 2, 2);
+    }
   });
   g.generateTexture("world-tiles", TILE * TILESET_KEYS.length, TILE);
   g.destroy();
@@ -98,10 +98,7 @@ function worldTilesetStrip(scene: Phaser.Scene) {
 
 export function composeWorldTileset(scene: Phaser.Scene) {
   if (scene.textures.exists("world-tiles")) return;
-  const rt = scene.make.renderTexture(
-    { width: TILE * TILESET_KEYS.length, height: TILE },
-    false,
-  );
+  const rt = scene.make.renderTexture({ width: TILE * TILESET_KEYS.length, height: TILE }, false);
   TILESET_KEYS.forEach((key, i) => {
     if (scene.textures.exists(key)) rt.draw(key, i * TILE, 0);
   });
@@ -110,33 +107,106 @@ export function composeWorldTileset(scene: Phaser.Scene) {
 }
 
 export function makePlaceholderTextures(scene: Phaser.Scene) {
-  tile(scene, "tile-grass", C.grass, C.grassEdge);
-  tile(scene, "tile-path", C.path, C.pathEdge);
-  tile(scene, "tile-floor", C.floor, C.floorEdge);
+  tile(scene, "tile-grass", C.grass, C.grassEdge, (g) => {
+    g.fillStyle(0xb39d74, 0.35);
+    g.fillRect(7, 18, 3, 3);
+    g.fillRect(18, 9, 2, 2);
+  });
+  tile(scene, "tile-path", C.path, C.pathEdge, (g) => {
+    g.fillStyle(0xe8dcc0, 0.45);
+    g.fillRect(6, 12, TILE - 12, 8);
+  });
+  tile(scene, "tile-floor", C.floor, C.floorEdge, (g) => {
+    g.fillStyle(0x8b4b32, 0.12);
+    g.fillRect(4, 4, 8, 8);
+  });
   tile(scene, "tile-creek", C.creek, C.creekEdge);
   tile(scene, "tile-wall", C.wall, C.wallEdge);
-  tile(scene, "tile-door", C.doorTile, C.doorTileEdge);
-  tile(scene, "tile-soil", C.soil, C.floorEdge);
-  crop(scene, "crop-grain-grow", C.grainGrow, false);
-  crop(scene, "crop-grain-ready", C.grainReady, true);
-  crop(scene, "crop-root-grow", C.rootGrow, false);
-  crop(scene, "crop-root-ready", C.rootReady, true);
-  crop(scene, "crop-herb-grow", C.herbGrow, false);
-  crop(scene, "crop-herb-ready", C.herbReady, true);
-  pilgrim(scene);
-  wolf(scene);
-  prop(scene, "sprite-kitchen", 40, 24, C.kitchen, (g) => {
-    g.fillStyle(0x3d3428, 1);
-    g.fillRect(8, 4, 24, 8);
+  tile(scene, "tile-door", C.doorTile, C.doorTileEdge, (g) => {
+    g.fillStyle(0xc4a35a, 1);
+    g.fillRect(20, 14, 5, 5);
   });
-  prop(scene, "sprite-stall", 40, 28, C.stall, (g) => {
-    g.fillStyle(0xcbb892, 1);
-    g.fillRect(4, 14, 32, 10);
+  tile(scene, "tile-forest", C.forest, C.forestEdge, (g) => {
+    g.fillStyle(0x2c241c, 0.28);
+    g.fillRect(10, 4, 8, 22);
+  });
+  tile(scene, "tile-soil", C.soil, C.floorEdge);
+
+  const planted = gfx(scene);
+  planted.fillStyle(0x6b5344, 1);
+  planted.fillRect(12, 20, 8, 6);
+  planted.fillStyle(C.grainPlanted, 1);
+  planted.fillRect(14, 16, 4, 6);
+  planted.generateTexture("crop-grain-planted", TILE, TILE);
+  planted.destroy();
+
+  crop(scene, "crop-grain-sprout", C.grainSprout, 10);
+  crop(scene, "crop-grain-grow", C.grainGrow, 16);
+  crop(scene, "crop-grain-ready", C.grainReady, 22);
+
+  person(scene, "sprite-pilgrim", C.pilgrim, C.pilgrimHead);
+  person(scene, "sprite-bren", 0x6a3a28, 0xc4a07a, (g) => {
+    g.fillStyle(0xf3efe4, 1);
+    g.fillRect(3, 14, 14, 8);
+  });
+
+  const wolf = gfx(scene);
+  wolf.fillStyle(0x3d2a1c, 1);
+  wolf.fillRect(4, 8, 22, 12);
+  wolf.fillRect(0, 10, 8, 8);
+  wolf.fillRect(22, 2, 8, 10);
+  wolf.fillStyle(0x8a6a4a, 1);
+  wolf.fillRect(6, 10, 6, 4);
+  wolf.fillStyle(0xd7cfc0, 0.9);
+  wolf.fillRect(2, 12, 3, 2);
+  wolf.generateTexture("sprite-wolf", 30, 22);
+  wolf.destroy();
+
+  prop(scene, "sprite-bed", 28, 16, 0x7a4a38, (g) => {
+    g.fillStyle(0xd7cfc0, 1);
+    g.fillRect(2, 2, 16, 12);
+  });
+  prop(scene, "sprite-fire", 22, 26, 0x4a3228, (g) => {
+    g.fillStyle(0xc45a28, 1);
+    g.fillRect(6, 6, 10, 14);
+    g.fillStyle(0xe8c46a, 1);
+    g.fillRect(8, 10, 6, 8);
+  });
+  prop(scene, "sprite-chest", 22, 16, 0x6a4a30, (g) => {
+    g.fillStyle(0xc4a35a, 1);
+    g.fillRect(9, 6, 4, 4);
+  });
+  prop(scene, "sprite-bench", 28, 16, 0x7a5a40, (g) => {
+    g.fillStyle(0x3d3428, 1);
+    g.fillRect(4, 4, 20, 5);
   });
   prop(scene, "sprite-door", 24, 32, C.door, (g) => {
     g.fillStyle(0xc4a35a, 1);
     g.fillRect(16, 14, 4, 4);
   });
+  prop(scene, "sprite-tree", 18, 28, 0x2c3a22, (g) => {
+    g.fillStyle(0x4a3228, 1);
+    g.fillRect(7, 20, 4, 8);
+  });
+  prop(scene, "sprite-tracks", 36, 16, 0x000000, (g) => {
+    g.clear();
+    g.fillStyle(0x3d2a1c, 0.55);
+    g.fillEllipse(10, 8, 14, 8);
+    g.fillEllipse(26, 9, 16, 9);
+  });
+  prop(scene, "sprite-scale", 12, 10, 0xb8c4c0, (g) => {
+    g.fillStyle(0xdfe8e4, 1);
+    g.fillRect(2, 2, 8, 6);
+  });
+  prop(scene, "sprite-carving", 18, 16, 0x6b5344, (g) => {
+    g.lineStyle(1, 0xcbb892, 1);
+    g.strokeCircle(9, 8, 5);
+  });
+  prop(scene, "sprite-pelt", 20, 12, 0x5a3a28, (g) => {
+    g.fillStyle(0x8a6a4a, 1);
+    g.fillRect(3, 3, 14, 6);
+  });
+
   const marker = gfx(scene);
   marker.fillStyle(C.marker, 0.85);
   marker.fillCircle(6, 6, 5);

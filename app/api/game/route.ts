@@ -8,10 +8,15 @@ import {
   createPlayer,
   fishCreek,
   harvest,
+  hydratePlayer,
+  pickupPelt,
   plant,
   sellToBren,
+  sellWheat,
+  setHealth,
+  setPosition,
   setScene,
-  wolfLoot,
+  wolfFalls,
   type Result,
 } from "@/lib/game-store";
 import { newPlayerId, readPlayer, writePlayer } from "@/lib/session";
@@ -25,7 +30,8 @@ function payload(player: PlayerState | null, message?: string) {
 }
 
 export async function GET() {
-  return NextResponse.json(payload(await readPlayer()));
+  const player = await readPlayer();
+  return NextResponse.json(payload(player ? hydratePlayer(player) : null));
 }
 
 export async function POST(request: Request) {
@@ -42,11 +48,29 @@ export async function POST(request: Request) {
   if (action === "enter") {
     player = createPlayer(newPlayerId(), String(body.name ?? "Pilgrim"));
     await writePlayer(player);
-    return NextResponse.json(payload(player, "Entered as pilgrim."));
+    return NextResponse.json(payload(player, "You wake at the hearth."));
   }
 
   if (!player) {
     return NextResponse.json({ error: "Enter as pilgrim first." }, { status: 401 });
+  }
+
+  player = hydratePlayer(player);
+
+  if (action === "sync") {
+    const incoming = body.player as PlayerState | undefined;
+    if (!incoming || incoming.id !== player.id) {
+      return NextResponse.json({ error: "Session mismatch." }, { status: 400 });
+    }
+    const merged = hydratePlayer({
+      ...incoming,
+      id: player.id,
+      name: player.name,
+      enteredAt: player.enteredAt,
+      walletAddress: player.walletAddress,
+    });
+    await writePlayer(merged);
+    return NextResponse.json(payload(merged));
   }
 
   let result: Result;
@@ -55,10 +79,10 @@ export async function POST(request: Request) {
       result = chooseClass(player, body.classId as ClassId);
       break;
     case "plant":
-      if (!isCropId(String(body.crop))) {
+      if (!isCropId(String(body.crop ?? "grain"))) {
         return NextResponse.json({ error: "Unknown crop." }, { status: 400 });
       }
-      result = plant(player, Number(body.plotId), body.crop as "grain" | "root" | "herb");
+      result = plant(player, Number(body.plotId), (body.crop as "grain" | "root" | "herb") ?? "grain");
       break;
     case "harvest":
       result = harvest(player, Number(body.plotId));
@@ -70,6 +94,10 @@ export async function POST(request: Request) {
       result = cookLoaf(player);
       break;
     case "sell":
+      if (body.all === true || String(body.crop ?? body.good ?? "grain") === "grain") {
+        result = sellWheat(player);
+        break;
+      }
       if (!isGoodsId(String(body.crop ?? body.good))) {
         return NextResponse.json({ error: "Unknown good." }, { status: 400 });
       }
@@ -79,10 +107,28 @@ export async function POST(request: Request) {
       result = setScene(player, body.scene === "hearth" ? "hearth" : "valley");
       break;
     case "wolf-loot":
-      result = wolfLoot(player, body.kind === "elite" ? "elite" : "pack");
+    case "wolf-down":
+      result = wolfFalls(player);
+      break;
+    case "pickup-pelt":
+      result = pickupPelt(player);
       break;
     case "buy-sword":
       result = buySword(player);
+      break;
+    case "health":
+      result = {
+        player: setHealth(player, Number(body.health)),
+        ok: true,
+        message: "",
+      };
+      break;
+    case "position":
+      result = {
+        player: setPosition(player, Number(body.x), Number(body.y)),
+        ok: true,
+        message: "",
+      };
       break;
     default:
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });

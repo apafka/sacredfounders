@@ -1,8 +1,8 @@
 import * as Phaser from "phaser";
-import { plotReady } from "@/lib/crops";
+import { plotStage } from "@/lib/crops";
 import { CROP_META } from "@/lib/types";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
-import { bindClickToMove, createGround, label } from "../draw-map";
+import { bindClickToMove, bindWalkKeys, burst, createGround, followActor, label, readAxis } from "../draw-map";
 import {
   HEARTH_PLOTS,
   HEARTH_SPOTS,
@@ -15,27 +15,31 @@ import {
   tileFromWorld,
   worldCenter,
 } from "../layout";
-import { clampToRect, slide, stepToward } from "../move";
+import { slide, stepToward } from "../move";
+import { PLAYER_SPEED } from "../wolf-ai";
 
-const WALK_SPEED = 120;
 const REACH = 22;
 
 type Job =
   | { kind: "plot"; plotId: number }
-  | { kind: "creek" }
-  | { kind: "kitchen" }
+  | { kind: "fire" }
+  | { kind: "bed" }
+  | { kind: "chest" }
+  | { kind: "workbench" }
   | { kind: "bren" }
   | { kind: "door" };
 
 export class HearthScene extends Phaser.Scene {
   private pilgrim!: Phaser.GameObjects.Image;
   private marker!: Phaser.GameObjects.Image;
+  private fireGlow!: Phaser.GameObjects.Image;
   private dest = { x: 0, y: 0 };
   private job: Job | null = null;
   private moving = false;
   private usedDoor = false;
-  private plotSprites = new Map<number, Phaser.GameObjects.Image>();
   private cropSprites = new Map<number, Phaser.GameObjects.Image>();
+  private keys: Record<string, Phaser.Input.Keyboard.Key> | undefined;
+  private persistAt = 0;
 
   constructor() {
     super("hearth");
@@ -50,40 +54,66 @@ export class HearthScene extends Phaser.Scene {
 
     for (const plot of HEARTH_PLOTS) {
       const { x, y } = worldCenter(plot.col, plot.row);
-      const soil = this.add.image(x, y, "tile-soil").setDepth(1);
-      const crop = this.add.image(x, y, "crop-grain-grow").setDepth(2).setVisible(false);
-      this.plotSprites.set(plot.id, soil);
+      this.add.image(x, y, "tile-soil").setDepth(1);
+      const crop = this.add.image(x, y, "crop-grain-planted").setDepth(2).setVisible(false);
       this.cropSprites.set(plot.id, crop);
     }
+    label(this, worldCenter(6, 3).x, worldCenter(6, 3).y - 18, "Garden");
 
-    const creek = worldCenter(HEARTH_SPOTS.creek.col, HEARTH_SPOTS.creek.row);
-    label(this, creek.x + TILE * 2, creek.y + 18, "Creek");
+    const fire = worldCenter(HEARTH_SPOTS.fire.col, HEARTH_SPOTS.fire.row);
+    this.add.image(fire.x, fire.y, "sprite-fire").setDepth(3);
+    this.fireGlow = this.add.image(fire.x, fire.y - 4, "sprite-fire").setDepth(2).setAlpha(0.35).setTint(0xffaa55);
+    label(this, fire.x, fire.y - 22, "Fire");
 
-    const kitchenPos = worldCenter(HEARTH_SPOTS.kitchen.col, HEARTH_SPOTS.kitchen.row);
-    this.add.image(kitchenPos.x, kitchenPos.y, "sprite-kitchen").setDepth(3);
-    label(this, kitchenPos.x, kitchenPos.y - 16, "Kitchen");
+    const bed = worldCenter(HEARTH_SPOTS.bed.col, HEARTH_SPOTS.bed.row);
+    this.add.image(bed.x, bed.y, "sprite-bed").setDepth(3);
+    label(this, bed.x, bed.y - 14, "Bed");
+
+    const chest = worldCenter(HEARTH_SPOTS.chest.col, HEARTH_SPOTS.chest.row);
+    this.add.image(chest.x, chest.y, "sprite-chest").setDepth(3);
+    label(this, chest.x, chest.y - 14, "Chest");
+
+    const bench = worldCenter(HEARTH_SPOTS.workbench.col, HEARTH_SPOTS.workbench.row);
+    this.add.image(bench.x, bench.y, "sprite-bench").setDepth(3);
+    label(this, bench.x, bench.y - 14, "Workbench");
 
     const brenPos = worldCenter(HEARTH_SPOTS.bren.col, HEARTH_SPOTS.bren.row);
-    this.add.image(brenPos.x, brenPos.y, "sprite-stall").setDepth(3);
+    this.add.image(brenPos.x, brenPos.y, "sprite-bren").setDepth(8);
     label(this, brenPos.x, brenPos.y - 18, "Old Bren");
 
     const doorPos = worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row);
     this.add.image(doorPos.x, doorPos.y, "sprite-door").setDepth(3);
-    label(this, doorPos.x, doorPos.y - 20, "Door");
+    label(this, doorPos.x, doorPos.y - 20, "Path");
 
-    const spawn = worldCenter(HEARTH_SPOTS.spawn.col, HEARTH_SPOTS.spawn.row);
+    const saved = this.bridge().getPlayer().position;
+    const spawn = saved
+      ? { x: saved.x, y: saved.y }
+      : worldCenter(HEARTH_SPOTS.spawn.col, HEARTH_SPOTS.spawn.row);
     this.dest = { ...spawn };
     this.pilgrim = this.add.image(spawn.x, spawn.y, "sprite-pilgrim").setDepth(10);
     this.marker = this.add.image(spawn.x, spawn.y, "sprite-marker").setDepth(9).setVisible(false);
+    followActor(this, this.pilgrim, HEARTH_TILES);
 
     this.bridge().emit({
       type: "hint",
-      text: "Tap the ground to walk. Garden beds, creek, kitchen, Old Bren, and the valley door all answer a tap.",
+      text: "This is your hearth. WASD or click to walk. The garden, Old Bren, and the north path are all close.",
     });
 
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
+    this.keys = bindWalkKeys(this);
     this.syncCrops();
+  }
+
+  private furniture(): { spot: { col: number; row: number }; job: Job; radius: number }[] {
+    return [
+      { spot: HEARTH_SPOTS.fire, job: { kind: "fire" }, radius: TILE },
+      { spot: HEARTH_SPOTS.bed, job: { kind: "bed" }, radius: TILE },
+      { spot: HEARTH_SPOTS.chest, job: { kind: "chest" }, radius: TILE },
+      { spot: HEARTH_SPOTS.workbench, job: { kind: "workbench" }, radius: TILE },
+      { spot: HEARTH_SPOTS.bren, job: { kind: "bren" }, radius: TILE * 1.15 },
+      { spot: HEARTH_SPOTS.door, job: { kind: "door" }, radius: TILE * 1.1 },
+    ];
   }
 
   private onTap(x: number, y: number) {
@@ -96,13 +126,7 @@ export class HearthScene extends Phaser.Scene {
       return;
     }
 
-    const jobs: { spot: { col: number; row: number }; job: Job; radius: number }[] = [
-      { spot: HEARTH_SPOTS.creek, job: { kind: "creek" }, radius: TILE * 1.2 },
-      { spot: HEARTH_SPOTS.kitchen, job: { kind: "kitchen" }, radius: TILE * 1.1 },
-      { spot: HEARTH_SPOTS.bren, job: { kind: "bren" }, radius: TILE * 1.1 },
-      { spot: HEARTH_SPOTS.door, job: { kind: "door" }, radius: TILE * 1.1 },
-    ];
-    for (const item of jobs) {
+    for (const item of this.furniture()) {
       const pos = worldCenter(item.spot.col, item.spot.row);
       if (Math.hypot(x - pos.x, y - pos.y) < item.radius) {
         this.walkTo(pos, item.job);
@@ -111,6 +135,20 @@ export class HearthScene extends Phaser.Scene {
     }
 
     this.walkTo({ x, y }, null);
+  }
+
+  private nearestJob(): Job | null {
+    const x = this.pilgrim.x;
+    const y = this.pilgrim.y;
+    for (const plot of HEARTH_PLOTS) {
+      const pos = worldCenter(plot.col, plot.row);
+      if (Math.hypot(x - pos.x, y - pos.y) < TILE) return { kind: "plot", plotId: plot.id };
+    }
+    for (const item of this.furniture()) {
+      const pos = worldCenter(item.spot.col, item.spot.row);
+      if (Math.hypot(x - pos.x, y - pos.y) < TILE * 1.1) return item.job;
+    }
+    return null;
   }
 
   private walkTo(pos: { x: number; y: number }, job: Job | null) {
@@ -140,32 +178,46 @@ export class HearthScene extends Phaser.Scene {
       const plot = player.plots[job.plotId];
       if (!plot) return;
       if (!plot.crop) {
+        if (player.seeds.grain < 1) {
+          bridge.emit({ type: "hint", text: "No wheat seed left. Harvest what you planted, or walk the path." });
+          return;
+        }
+        burst(this, this.pilgrim.x, this.pilgrim.y, 0x6b5344);
         bridge.emit({ type: "plant", plotId: job.plotId });
         return;
       }
-      const ready =
-        plot.plantedAt != null && plotReady(plot.plantedAt, plot.crop, player.farmSkill, Date.now());
-      if (ready) {
+      const stage =
+        plot.plantedAt != null ? plotStage(plot.plantedAt, plot.crop, Date.now()) : "empty";
+      if (stage === "ready") {
+        burst(this, this.pilgrim.x, this.pilgrim.y - 8, 0xc4a35a);
         bridge.emit({ type: "harvest", plotId: job.plotId });
       } else {
         bridge.emit({
           type: "hint",
-          text: `${CROP_META[plot.crop].name} is still growing in bed ${job.plotId + 1}.`,
+          text: `${CROP_META[plot.crop].name} is still growing.`,
         });
       }
       return;
     }
-    if (job.kind === "creek") {
-      bridge.emit({ type: "fish" });
+    if (job.kind === "fire") {
+      bridge.emit({ type: "hint", text: "The fire kept. Warmth enough to stay a week — or leave in a minute." });
       return;
     }
-    if (job.kind === "kitchen") {
-      bridge.emit({ type: "cook" });
+    if (job.kind === "bed") {
+      bridge.emit({ type: "hint", text: "Your bed. The day is young." });
+      return;
+    }
+    if (job.kind === "chest") {
+      bridge.emit({ type: "inventory" });
+      bridge.emit({ type: "hint", text: "A chest for later. For now, what you carry is on you. Press I." });
+      return;
+    }
+    if (job.kind === "workbench") {
+      bridge.emit({ type: "hint", text: "A workbench waiting for craft. Not today." });
       return;
     }
     if (job.kind === "bren") {
-      bridge.emit({ type: "open-market" });
-      bridge.emit({ type: "hint", text: "Old Bren waits with a quiet scale." });
+      bridge.emit({ type: "talk-bren" });
       return;
     }
     this.openValleyDoor();
@@ -187,19 +239,37 @@ export class HearthScene extends Phaser.Scene {
         sprite.setVisible(false);
         continue;
       }
-      const ready = plotReady(plot.plantedAt, plot.crop, player.farmSkill, now);
-      sprite.setTexture(cropTexture(plot.crop, ready)).setVisible(true);
+      const stage = plotStage(plot.plantedAt, plot.crop, now);
+      sprite.setTexture(cropTexture(plot.crop, stage)).setVisible(true);
     }
   }
 
   update(_time: number, delta: number) {
     this.syncCrops();
-    if (this.moving) {
+    this.fireGlow.setAlpha(0.25 + Math.sin(_time / 180) * 0.12);
+    this.fireGlow.setScale(1 + Math.sin(_time / 140) * 0.08);
+
+    const dt = delta / 1000;
+    const axis = readAxis(this.keys);
+    if (axis.x !== 0 || axis.y !== 0) {
+      this.moving = false;
+      this.job = null;
+      this.marker.setVisible(false);
+      const len = Math.hypot(axis.x, axis.y) || 1;
+      const next = slide(
+        HEARTH_TILES,
+        this.pilgrim.x,
+        this.pilgrim.y,
+        this.pilgrim.x + (axis.x / len) * PLAYER_SPEED * dt,
+        this.pilgrim.y + (axis.y / len) * PLAYER_SPEED * dt,
+      );
+      this.pilgrim.setPosition(next.x, next.y).setFlipX(axis.x < 0);
+    } else if (this.moving) {
       const prevX = this.pilgrim.x;
       const prevY = this.pilgrim.y;
-      const next = stepToward(prevX, prevY, this.dest.x, this.dest.y, WALK_SPEED, delta / 1000, REACH);
+      const next = stepToward(prevX, prevY, this.dest.x, this.dest.y, PLAYER_SPEED, dt, REACH);
       const slid = slide(HEARTH_TILES, prevX, prevY, next.x, next.y);
-      this.pilgrim.setPosition(slid.x, slid.y).setDepth(10 + slid.y);
+      this.pilgrim.setPosition(slid.x, slid.y).setFlipX(this.dest.x < prevX);
       if (next.arrived) {
         this.moving = false;
         this.marker.setVisible(false);
@@ -209,9 +279,26 @@ export class HearthScene extends Phaser.Scene {
         this.marker.setVisible(false);
       }
     }
+
+    this.pilgrim.setDepth(10 + this.pilgrim.y);
+
+    if (this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+      const job = this.nearestJob();
+      if (job) {
+        this.job = job;
+        this.doJob();
+      }
+    }
+
     const tile = tileFromWorld(this.pilgrim.x, this.pilgrim.y);
     if (isDoorTile(tileAt(HEARTH_TILES, tile.col, tile.row))) {
       this.openValleyDoor();
+    }
+
+    this.persistAt += delta;
+    if (this.persistAt > 1200) {
+      this.persistAt = 0;
+      this.bridge().emit({ type: "position", x: this.pilgrim.x, y: this.pilgrim.y });
     }
   }
 }

@@ -4,14 +4,17 @@ export type WorldEvent =
   | { type: "ready" }
   | { type: "fail"; error?: unknown }
   | { type: "hint"; text: string }
+  | { type: "toast"; text: string }
   | { type: "plant"; plotId: number }
   | { type: "harvest"; plotId: number }
-  | { type: "fish" }
-  | { type: "cook" }
-  | { type: "open-market" }
+  | { type: "talk-bren" }
   | { type: "door"; scene: "hearth" | "valley" }
-  | { type: "wolf-loot"; kind?: "pack" | "elite" }
-  | { type: "combat"; you: number; wolf: number; elite?: number; xp?: number; level?: number };
+  | { type: "wolf-down" }
+  | { type: "pickup-pelt" }
+  | { type: "combat"; you: number }
+  | { type: "health"; health: number }
+  | { type: "position"; x: number; y: number }
+  | { type: "inventory" };
 
 export type WorldBridge = {
   getPlayer: () => PlayerState;
@@ -21,15 +24,3 @@ export type WorldBridge = {
 };
 
 export const BRIDGE_KEY = "bridge";
-
-let strikeQueued = false;
-
-export function queueValleyStrike() {
-  strikeQueued = true;
-}
-
-export function pullValleyStrike() {
-  if (!strikeQueued) return false;
-  strikeQueued = false;
-  return true;
-}

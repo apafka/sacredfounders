@@ -156,3 +156,148 @@ h2 {
   display: block;
   cursor: pointer;
 }
+
+.game-app {
+  min-height: 100dvh;
+  background: #241c16;
+}
+
+.game-frame {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-frame .world-stage {
+  flex: 1;
+  width: 100%;
+  max-height: none;
+  aspect-ratio: 640 / 448;
+  height: min(100dvh, calc(100vw * 448 / 640));
+  border: none;
+  background: #3d3228;
+}
+
+.game-hud {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem 1rem 0.9rem;
+}
+
+.hud-top,
+.hud-bottom {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.hud-health,
+.hud-gold,
+.hud-skills,
+.hud-hint,
+.hud-toast,
+.hud-panel {
+  background: #f3efe4ee;
+  color: var(--ink);
+  border: 1px solid #d7cfc0;
+}
+
+.hud-health,
+.hud-gold {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.hp-track {
+  width: 7rem;
+  height: 0.55rem;
+  background: #2c241c;
+}
+
+.hp-fill {
+  height: 100%;
+  background: #6d7a4e;
+}
+
+.hud-gold strong {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.hud-bottom {
+  align-items: flex-end;
+}
+
+.hud-skills,
+.hud-hint {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.hud-hint {
+  max-width: 28rem;
+  color: var(--muted);
+}
+
+.hud-toast {
+  pointer-events: none;
+  align-self: center;
+  margin-top: 3.5rem;
+  padding: 0.45rem 0.8rem;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 1.15rem;
+}
+
+.hud-panel {
+  pointer-events: auto;
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  width: min(28rem, calc(100% - 2rem));
+  transform: translate(-50%, -50%);
+  padding: 1rem;
+}
+
+.hud-backdrop {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: 0;
+  background: #241c1688;
+  cursor: pointer;
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.inv-slot {
+  min-height: 3.2rem;
+  border: 1px solid var(--line);
+  background: #faf7ef;
+  padding: 0.35rem;
+  font-size: 0.72rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.inv-slot em {
+  font-style: normal;
+  color: var(--muted);
+}

@@ -2,19 +2,17 @@
 
 import dynamic from "next/dynamic";
 import { Component, useCallback, useState, type ReactNode } from "react";
-import { CROP_META } from "@/lib/crops";
+import { plotStage } from "@/lib/crops";
 import type { WorldEvent } from "@/lib/phaser/bridge";
-import { CROP_IDS, type CropId, type GoodsId, type PlayerState } from "@/lib/types";
-import { BasketPanel } from "./basket-panel";
-import { HearthView } from "./hearth-view";
-import { MarketPanel } from "./market-panel";
-import { SessionLog } from "./session-log";
-import { ValleyCombat } from "./valley-combat";
+import type { PlayerState } from "@/lib/types";
+import { DialoguePanel } from "./dialogue-panel";
+import { GameHud } from "./game-hud";
+import { InventoryPanel } from "./inventory-panel";
 
 const PhaserCanvas = dynamic(() => import("./phaser-canvas"), {
   ssr: false,
   loading: () => (
-    <div className="world-stage grid place-items-center text-sm text-[var(--muted)]">Lighting the tiles…</div>
+    <div className="world-stage grid place-items-center text-sm text-[var(--muted)]">Lighting the hearth…</div>
   ),
 });
 
@@ -33,50 +31,57 @@ class PhaserGuard extends Component<{ onFail: () => void; children: ReactNode },
 
 export function WorldStage({
   player,
-  seed,
-  setSeed,
   busy,
+  inventoryOpen,
+  dialogueOpen,
+  toast,
+  hint,
+  onHint,
+  onToast,
   onPlant,
   onHarvest,
-  onFish,
-  onCook,
   onSell,
   onDoor,
-  onLoot,
-  onBuySword,
+  onWolfDown,
+  onPickupPelt,
+  onHealth,
+  onPosition,
+  onToggleInventory,
+  onToggleDialogue,
 }: {
   player: PlayerState;
-  seed: CropId;
-  setSeed: (crop: CropId) => void;
   busy: boolean;
+  inventoryOpen: boolean;
+  dialogueOpen: boolean;
+  toast: string;
+  hint: string;
+  onHint: (text: string) => void;
+  onToast: (text: string) => void;
   onPlant: (plotId: number) => void;
   onHarvest: (plotId: number) => void;
-  onFish: () => void;
-  onCook: () => void;
-  onSell: (good: GoodsId) => void;
+  onSell: () => void;
   onDoor: (scene: "hearth" | "valley") => void;
-  onLoot: (kind?: "pack" | "elite") => void;
-  onBuySword: () => void;
+  onWolfDown: () => void;
+  onPickupPelt: () => void;
+  onHealth: (health: number) => void;
+  onPosition: (x: number, y: number) => void;
+  onToggleInventory: (open?: boolean) => void;
+  onToggleDialogue: (open?: boolean) => void;
 }) {
-  const [mode, setMode] = useState<"phaser" | "text">("phaser");
   const [failed, setFailed] = useState(false);
-  const [hint, setHint] = useState("");
-  const [marketOpen, setMarketOpen] = useState(false);
-  const [strikeTick, setStrikeTick] = useState(0);
-  const [combat, setCombat] = useState({ you: 3, wolf: 3, elite: 8, xp: 0, level: 1 });
-
-  const useText = mode === "text" || failed;
-  const inValley = player.scene === "valley";
 
   const onEvent = useCallback(
     (event: WorldEvent) => {
       switch (event.type) {
         case "fail":
           setFailed(true);
-          setHint("Tiles would not light. Using the written hearth.");
+          onHint("The tiles would not light. The written hearth still stands.");
           break;
         case "hint":
-          setHint(event.text);
+          onHint(event.text);
+          break;
+        case "toast":
+          onToast(event.text);
           break;
         case "plant":
           onPlant(event.plotId);
@@ -84,134 +89,165 @@ export function WorldStage({
         case "harvest":
           onHarvest(event.plotId);
           break;
-        case "fish":
-          onFish();
-          break;
-        case "cook":
-          onCook();
-          break;
-        case "open-market":
-          setMarketOpen(true);
+        case "talk-bren":
+          onToggleDialogue(true);
           break;
         case "door":
-          setMarketOpen(false);
+          onToggleDialogue(false);
           onDoor(event.scene);
           break;
-        case "wolf-loot":
-          onLoot(event.kind);
+        case "wolf-down":
+          onWolfDown();
+          break;
+        case "pickup-pelt":
+          onPickupPelt();
           break;
         case "combat":
-          setCombat({
-            you: event.you,
-            wolf: event.wolf,
-            elite: event.elite ?? 0,
-            xp: event.xp ?? player.xp,
-            level: event.level ?? player.level,
-          });
+        case "health":
+          onHealth("health" in event ? event.health : event.you);
+          break;
+        case "position":
+          onPosition(event.x, event.y);
+          break;
+        case "inventory":
+          onToggleInventory(true);
           break;
         default:
           break;
       }
     },
-    [onCook, onDoor, onFish, onHarvest, onLoot, onPlant],
+    [onDoor, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onToast, onToggleDialogue, onToggleInventory, onWolfDown],
   );
 
+  if (failed) {
+    return (
+      <div className="game-frame">
+        <TextSlice
+          player={player}
+          busy={busy}
+          onPlant={onPlant}
+          onHarvest={onHarvest}
+          onSell={onSell}
+          onDoor={onDoor}
+          onWolfDown={onWolfDown}
+          onPickupPelt={onPickupPelt}
+        />
+        <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} />
+        {inventoryOpen ? <InventoryPanel player={player} onClose={() => onToggleInventory(false)} /> : null}
+        {dialogueOpen ? (
+          <DialoguePanel player={player} onSell={onSell} onClose={() => onToggleDialogue(false)} />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.75fr)]">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {!useText && !inValley ? (
-            <div className="flex flex-wrap gap-2">
-              {CROP_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`btn-tiny ${seed === id ? "tab-on" : ""}`}
-                  onClick={() => setSeed(id)}
-                >
-                  {CROP_META[id].name} seed {player.seeds[id]}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          {!useText && inValley ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm">
-                You {combat.you} · Wolves {Math.max(0, combat.wolf)}/3 · Dire {combat.elite} · Lv {player.level} ({player.xp} xp)
-                {player.hasSword ? " · Iron Blade" : ""}
-              </span>
-              <button className="btn-primary" type="button" disabled={busy} onClick={() => setStrikeTick((n) => n + 1)}>
-                Strike
-              </button>
-              <button className="btn-quiet" type="button" onClick={() => onDoor("hearth")}>
-                Back through the door
-              </button>
-            </div>
-          ) : null}
-          <button
-            className="btn-quiet"
-            type="button"
-            onClick={() => {
-              if (useText) {
-                setFailed(false);
-                setMode("phaser");
-              } else {
-                setMode("text");
-              }
+    <div className="game-frame">
+      <PhaserGuard onFail={() => onEvent({ type: "fail" })}>
+        <PhaserCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
+      </PhaserGuard>
+      <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} />
+      {inventoryOpen ? (
+        <>
+          <button className="hud-backdrop" type="button" aria-label="Close pack" onClick={() => onToggleInventory(false)} />
+          <InventoryPanel player={player} onClose={() => onToggleInventory(false)} />
+        </>
+      ) : null}
+      {dialogueOpen ? (
+        <>
+          <button className="hud-backdrop" type="button" aria-label="Close conversation" onClick={() => onToggleDialogue(false)} />
+          <DialoguePanel
+            player={player}
+            onSell={() => {
+              onSell();
+              onToggleDialogue(false);
             }}
-          >
-            {useText ? "2D view" : "Text view"}
-          </button>
-        </div>
-
-        {useText ? (
-          inValley ? (
-            <ValleyCombat busy={busy} onLoot={() => onLoot()} onHome={() => onDoor("hearth")} />
-          ) : (
-            <HearthView
-              player={player}
-              seed={seed}
-              setSeed={setSeed}
-              busy={busy}
-              onPlant={onPlant}
-              onHarvest={onHarvest}
-              onFish={onFish}
-              onCook={onCook}
-              onDoor={() => onDoor("valley")}
-            />
-          )
-        ) : (
-          <div className="relative">
-            <PhaserGuard onFail={() => onEvent({ type: "fail" })}>
-              <PhaserCanvas
-                player={player}
-                seed={seed}
-                busy={busy}
-                strikeTick={strikeTick}
-                onEvent={onEvent}
-              />
-            </PhaserGuard>
-            {marketOpen ? (
-              <div className="absolute inset-3 z-10 overflow-auto rounded-sm bg-[#faf7ef]/95 p-2 shadow-sm">
-                <div className="mb-2 flex justify-end">
-                  <button className="btn-tiny" type="button" onClick={() => setMarketOpen(false)}>
-                    Close
-                  </button>
-                </div>
-                <MarketPanel player={player} busy={busy} onSell={onSell} onBuySword={onBuySword} />
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {hint ? <p className="text-sm text-[var(--muted)]">{hint}</p> : null}
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <BasketPanel player={player} />
-        <MarketPanel player={player} busy={busy} onSell={onSell} onBuySword={onBuySword} />
-        <SessionLog player={player} />
-      </div>
+            onClose={() => onToggleDialogue(false)}
+          />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function TextSlice({
+  player,
+  busy,
+  onPlant,
+  onHarvest,
+  onSell,
+  onDoor,
+  onWolfDown,
+  onPickupPelt,
+}: {
+  player: PlayerState;
+  busy: boolean;
+  onPlant: (plotId: number) => void;
+  onHarvest: (plotId: number) => void;
+  onSell: () => void;
+  onDoor: (scene: "hearth" | "valley") => void;
+  onWolfDown: () => void;
+  onPickupPelt: () => void;
+}) {
+  const now = Date.now();
+  if (player.scene === "valley") {
+    return (
+      <section className="panel m-4">
+        <h2>Forest edge</h2>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Enormous tracks. A scale in the soil. A carving no two villagers explain the same way.
+        </p>
+        {player.wolf.alive ? (
+          <button className="btn-primary mt-4" type="button" disabled={busy} onClick={onWolfDown}>
+            Face the wolf
+          </button>
+        ) : player.wolf.peltDropped ? (
+          <button className="btn-primary mt-4" type="button" disabled={busy} onClick={onPickupPelt}>
+            Pick up Wolf Pelt
+          </button>
+        ) : (
+          <p className="mt-4">The trees do not open. What&apos;s beyond that forest?</p>
+        )}
+        <button className="btn-quiet mt-3" type="button" onClick={() => onDoor("hearth")}>
+          Back to the hearth
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel m-4">
+      <h2>Hearth</h2>
+      <p className="mt-2 text-sm text-[var(--muted)]">Bed, fire, chest, workbench, door. The garden is just outside.</p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {player.plots.map((plot) => {
+          const stage =
+            plot.crop && plot.plantedAt != null ? plotStage(plot.plantedAt, plot.crop, now) : "empty";
+          return (
+            <button
+              key={plot.id}
+              type="button"
+              disabled={busy}
+              className="min-h-20 rounded-sm border border-[var(--line)] bg-[#f7f1e4] p-2 text-left text-sm"
+              onClick={() => {
+                if (!plot.crop) onPlant(plot.id);
+                else if (stage === "ready") onHarvest(plot.id);
+              }}
+            >
+              <div className="text-xs text-[var(--muted)]">Plot {plot.id + 1}</div>
+              <div>{stage === "empty" ? "Empty · plant wheat" : stage === "ready" ? "Wheat ready" : `Wheat ${stage}`}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button className="btn-quiet" type="button" onClick={onSell}>
+          Talk to Old Bren
+        </button>
+        <button className="btn-quiet" type="button" onClick={() => onDoor("valley")}>
+          Path to the forest
+        </button>
+      </div>
+    </section>
   );
 }
