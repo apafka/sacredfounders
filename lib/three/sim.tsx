@@ -65,7 +65,7 @@ function nearestHearthJob(x: number, y: number): HearthJob | null {
     { kind: "bed", radius: TILE },
     { kind: "chest", radius: TILE },
     { kind: "workbench", radius: TILE },
-    { kind: "bren", radius: TILE * 1.15 },
+    { kind: "bren", radius: TILE * 1.8 },
     { kind: "door", radius: TILE * 1.1 },
   ];
   for (const item of furniture) {

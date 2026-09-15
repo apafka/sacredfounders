@@ -83,6 +83,22 @@ function collectTiles(map: readonly string[], ch: string, skipBorder = false) {
   return cells;
 }
 
+/** Tall, slightly see-through hit box so isometric clicks land on people and furniture. */
+function ClickVolume({
+  size = [1.25, 1.7, 1.25],
+  y = 0.85,
+}: {
+  size?: [number, number, number];
+  y?: number;
+}) {
+  return (
+    <mesh position={[0, y, 0]}>
+      <boxGeometry args={size} />
+      <meshBasicMaterial transparent opacity={0.02} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function cottageRoof() {
   const floors = collectTiles(HEARTH_TILES, ".").filter((cell) => {
     const col = Math.floor(cell.x);
@@ -222,14 +238,17 @@ export function HearthWorld({
         }}
       >
         <BrenMesh />
+        <ClickVolume size={[1.5, 2.1, 1.5]} y={0.95} />
       </group>
       <group
+        position={[door.x, 0, door.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "door" });
         }}
       >
-        <DoorProp position={[door.x, 0, door.z]} />
+        <DoorProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.4, 2.2, 1.1]} y={0.9} />
       </group>
 
       <WorldLabel text="Garden" position={[garden.x, 1.15, garden.z]} />
