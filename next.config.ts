@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   // blocks /_next/* and the page stays on the SSR "Opening the hearth…" shell.
   allowedDevOrigins: ["*.agent.cvm.dev", "**.agent.cvm.dev"],
   serverExternalPackages: ["phaser"],
+  transpilePackages: ["three", "@react-three/fiber"],
   turbopack: {
     resolveAlias: {
       phaser: phaserBuild,

@@ -323,8 +323,8 @@ export class ValleyScene extends Phaser.Scene {
       const ticked = tickWolf(this.body, this.wolf, dt, Math.random, {
         minX: MARGIN,
         minY: MARGIN,
-        maxX: TILE * 22,
-        maxY: TILE * 8,
+        maxX: TILE * ((VALLEY_TILES[0]?.length ?? 2) - 2),
+        maxY: TILE * 10,
       });
       this.wolf = ticked.wolf;
       if (ticked.wolfHit && ticked.player.hp < this.body.hp) {

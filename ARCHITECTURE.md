@@ -2,29 +2,28 @@
 
 North star: *A world people would inhabit if every token were worth zero.*
 
-This slice stays on **Next.js 16 + Phaser 3** (top-down, warm placeholders). No Three.js, no wallet UI, no chain gameplay. `ENABLE_CHAIN` stays off.
+This slice is **Next.js 16 + an isometric Three.js door** (R3F, orthographic camera, warm low-poly placeholders). Phaser 3 remains a zoomed-out fallback (`?view=phaser`). No wallet UI, no chain gameplay. `ENABLE_CHAIN` stays off.
 
 ## Scene hierarchy
 
 ```
-BootScene
-  └─ generates placeholder textures (or art-pack keys)
-      ├─ HearthScene   cottage + garden + baker
-      └─ ValleyScene   path + forest edge + one wolf
+IsoSim (default) / Phaser BootScene (fallback)
+  ├─ Hearth   cottage + garden + baker
+  └─ Valley   path + forest edge + one wolf
 ```
 
-React HUD overlays the canvas. Phaser owns the world; React owns inventory, dialogue, and persistence wiring.
+React HUD overlays the canvas. The renderer owns the world; React owns inventory, dialogue, and persistence wiring. Economy still lives in `lib/game-store.ts` — the isometric scene emits the same `WorldBridge` events as Phaser.
 
 ```
-HearthScene
-  Ground (tilemap)
+Hearth
+  Ground (tiles → instanced boxes / Phaser tilemap)
   Cottage furniture: bed, fireplace, chest, workbench
-  Garden: 3 plots (crop stage sprites)
+  Garden: 3 plots (crop stages)
   Old Bren (person + DeterministicBrain)
   Door (to valley)
-  Pilgrim (camera follow)
+  Pilgrim (isometric follow camera)
 
-ValleyScene
+Valley
   Ground (path → darker forest)
   Dragon presence: tracks, scale, carving (not a boss)
   One wolf
@@ -32,20 +31,21 @@ ValleyScene
   Door (home)
 ```
 
-Viewport is 640×448 with a following camera. Maps are larger than the view so walking has a destination.
+Viewport is **896×576** (28×18 tiles at TILE 32) — about **1.8×** the old 640×448 window — with a following camera. Maps pad east/south so the wider view shows countryside, not empty canvas. The isometric camera uses the same 18-tile vertical window.
 
 ## Systems (data-first)
 
 | Layer | Lives in | Notes |
 | --- | --- | --- |
-| Rendering | `lib/phaser/scenes/*` | Sprites, camera, FX. No economy math. |
+| Rendering (iso) | `lib/three/*` | Orthographic isometric camera, lights, low-poly world. No economy math. |
+| Rendering (tiles) | `lib/phaser/scenes/*` | Fallback sprites, camera, FX. |
 | Game rules | `lib/game-store.ts` | Pure functions. Client + tests + `/api/game`. |
 | Items / crops / enemies / NPCs | `lib/data/*` + `lib/types.ts` | Definitions, not scene code. |
 | Inventory | `lib/game/inventory.ts` | 20 slots, stacking. |
 | Skills | `lib/game/skills.ts` | Farming + Combat; add more later. |
 | Economy | sell wheat → gold | Baker is a sink, not an infinite shop. |
 | NPC brain | `lib/game/npc.ts` | `DeterministicBrain` now; `AgentBrain` later. No LLM. |
-| Combat | `lib/phaser/wolf-ai.ts` + `lib/combat.ts` | Click → approach → auto-attack. |
+| Combat | `lib/phaser/wolf-ai.ts` + `lib/combat.ts` | Click → approach → auto-attack. Shared by both renderers. |
 | Persistence | `lib/game/persistence.ts` | `GamePersistence.save/load`. |
 
 ## Data models
@@ -95,5 +95,6 @@ Pilgrim cookie `sf_pilgrim` still identifies the session. `GamePersistence` (loc
 6. Pelt pickup + Combat XP
 7. GamePersistence
 8. Polish (warm light, forest presence, toasts)
+9. Zoom out the viewport; isometric Three.js door on the same loop
 
 Out of slice: chain, wallet, marketplace, multiplayer, LLM, second continent, fishing/cooking as features, class pick, pack wolves.

@@ -3,19 +3,31 @@ import type { CropStage } from "@/lib/crops";
 
 /** Top-down tile size. Swap art at this resolution (or 16px and scale 2x). */
 export const TILE = 32;
-export const COLS = 24;
-export const VIEW_COLS = 20;
-export const VIEW_ROWS = 14;
+/** World width in tiles (east/south padding beyond the original 24-wide slice). */
+export const COLS = 32;
+/**
+ * Viewport was 20×14 (640×448) — too tight on cottage + garden.
+ * 28×18 at TILE 32 → 896×576, ~1.8× more world in view, tiles still readable.
+ */
+export const VIEW_COLS = 28;
+export const VIEW_ROWS = 18;
 export const VIEW_WIDTH = VIEW_COLS * TILE;
 export const VIEW_HEIGHT = VIEW_ROWS * TILE;
+/** Previous production viewport; tests assert the zoom-out against this. */
+export const LEGACY_VIEW_WIDTH = 20 * TILE;
+export const LEGACY_VIEW_HEIGHT = 14 * TILE;
+export const CAMERA_ZOOM = 1;
 
 /**
  * Hearth (cottage + garden + baker) and valley (path + forest edge).
  *
  *   , grass     = path     . cottage floor
  *   T forest    # wall     D door
+ *
+ * Core maps stay 24 tiles wide so furniture / plot / door columns do not move.
+ * expandTileMap pads east and south with countryside so the wider camera has world to show.
  */
-export const HEARTH_TILES = [
+const HEARTH_CORE = [
   "########################",
   "#,,,,,,,,,,,,,,,,,,,,,,#",
   "#,,==========,,,,,,,,,,#",
@@ -34,7 +46,7 @@ export const HEARTH_TILES = [
   "########################",
 ] as const;
 
-export const VALLEY_TILES = [
+const VALLEY_CORE = [
   "########################",
   "#TTTTTTTTTTTTTTTTTTTTTT#",
   "#TTTTT========TTTTTTTTT#",
@@ -54,6 +66,39 @@ export const VALLEY_TILES = [
   "#,,,,,,,,,,,,,,,,,,,,,,#",
   "########################",
 ] as const;
+
+/**
+ * Grow a walled map east and south. Existing tile indices (and therefore
+ * HEARTH_SPOTS / VALLEY_SPOTS) stay valid; extra cells are countryside.
+ */
+export function expandTileMap(
+  tiles: readonly string[],
+  cols: number,
+  rows: number,
+  fill = ",",
+): string[] {
+  if (cols < 2 || rows < 2) {
+    throw new Error("expandTileMap needs room for walls");
+  }
+  const wall = "#".repeat(cols);
+  const out: string[] = [wall];
+  const interior = tiles.slice(1, Math.max(1, tiles.length - 1));
+  for (const row of interior) {
+    const core = row.startsWith("#") && row.endsWith("#") ? row.slice(1, -1) : row;
+    const clipped = core.slice(0, Math.max(0, cols - 2));
+    const pad = Math.max(0, cols - 2 - clipped.length);
+    out.push(`#${clipped}${fill.repeat(pad)}#`);
+    if (out.length >= rows - 1) break;
+  }
+  while (out.length < rows - 1) {
+    out.push(`#${fill.repeat(cols - 2)}#`);
+  }
+  out.push(wall);
+  return out;
+}
+
+export const HEARTH_TILES = expandTileMap(HEARTH_CORE, COLS, 22);
+export const VALLEY_TILES = expandTileMap(VALLEY_CORE, COLS, 24);
 
 export const HEARTH_ROWS = HEARTH_TILES.length;
 export const VALLEY_ROWS = VALLEY_TILES.length;
@@ -128,6 +173,10 @@ export const VALLEY_TREES: Spot[] = [
   { col: 15, row: 1 },
   { col: 9, row: 2 },
   { col: 14, row: 5 },
+  { col: 22, row: 3 },
+  { col: 24, row: 6 },
+  { col: 26, row: 2 },
+  { col: 28, row: 4 },
 ];
 
 export function tileAt(map: readonly string[], col: number, row: number): string {
