@@ -31,7 +31,7 @@ Valley
   Door (home)
 ```
 
-Viewport is **896×576** (28×18 tiles at TILE 32) — about **1.8×** the old 640×448 window — with a following camera. Maps pad east/south so the wider view shows countryside, not empty canvas. The isometric camera uses the same 18-tile vertical window.
+Viewport is **896×576** (28×18 tiles at TILE 32) — about **1.8×** the old 640×448 window — with a following camera. Maps pad east/south so the wider view shows countryside, not empty canvas. The isometric camera shows **22** world units vertically so the 3D cottage does not fill the frame.
 
 ## Systems (data-first)
 

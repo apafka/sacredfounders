@@ -81,29 +81,96 @@ export function lineBlocked(
   return false;
 }
 
+type Tile = { col: number; row: number };
+
+function tileKey(col: number, row: number) {
+  return `${col},${row}`;
+}
+
+/** 4-neighbour walkable path on the hearth map. */
+export function findTilePath(
+  map: readonly string[],
+  start: Tile,
+  goal: Tile,
+): Tile[] | null {
+  if (!isWalkable(tileAt(map, start.col, start.row))) return null;
+  if (!isWalkable(tileAt(map, goal.col, goal.row))) return null;
+  if (start.col === goal.col && start.row === goal.row) return [start];
+  const came = new Map<string, Tile | null>();
+  came.set(tileKey(start.col, start.row), null);
+  const queue: Tile[] = [start];
+  const dirs: [number, number][] = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    if (!cur) break;
+    if (cur.col === goal.col && cur.row === goal.row) {
+      const tiles: Tile[] = [];
+      let step: Tile | null = cur;
+      while (step) {
+        tiles.push(step);
+        step = came.get(tileKey(step.col, step.row)) ?? null;
+      }
+      return tiles.reverse();
+    }
+    for (const [dc, dr] of dirs) {
+      const next = { col: cur.col + dc, row: cur.row + dr };
+      const key = tileKey(next.col, next.row);
+      if (came.has(key)) continue;
+      if (!isWalkable(tileAt(map, next.col, next.row))) continue;
+      came.set(key, cur);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
+/** Keep the farthest waypoint still visible from the previous one. */
+export function pullWaypoints(fromX: number, fromY: number, points: Point[]): Point[] {
+  if (points.length === 0) return [];
+  const out: Point[] = [];
+  let sx = fromX;
+  let sy = fromY;
+  let i = 0;
+  while (i < points.length) {
+    let best = i;
+    for (let j = points.length - 1; j >= i; j -= 1) {
+      const point = points[j];
+      if (point && !lineBlocked(HEARTH_TILES, sx, sy, point.x, point.y)) {
+        best = j;
+        break;
+      }
+    }
+    const chosen = points[best];
+    if (!chosen) break;
+    out.push(chosen);
+    sx = chosen.x;
+    sy = chosen.y;
+    i = best + 1;
+  }
+  return out;
+}
+
 /**
- * Click-to-move is a straight slide. The cottage walls block garden ↔ interior,
- * so route through the north/south path mouths when a direct line is blocked.
+ * Click-to-move is a straight slide when the line is open. Cottage walls
+ * block garden ↔ interior ↔ yard, so fall back to a walkable tile path
+ * pulled into a few mouth waypoints.
  */
 export function hearthRoute(fromX: number, fromY: number, toX: number, toY: number): Point[] {
   const dest = { x: toX, y: toY };
   if (!lineBlocked(HEARTH_TILES, fromX, fromY, toX, toY)) return [dest];
   const from = tileFromWorld(fromX, fromY);
   const to = tileFromWorld(toX, toY);
-  const hall = worldCenter(10, 8);
-  const north = worldCenter(10, 5);
-  const south = worldCenter(10, 11);
-  const fromGarden = from.row <= 5;
-  const toGarden = to.row <= 5;
-  const fromYard = from.row >= 11;
-  const toYard = to.row >= 11;
-  let points: Point[] = [dest];
-  if (fromGarden && toGarden) points = [dest];
-  else if (fromYard && toYard) points = [dest];
-  else if (toGarden) points = [hall, north, dest];
-  else if (fromGarden) points = [north, hall, dest];
-  else if (toYard) points = [hall, south, dest];
-  else if (fromYard) points = [south, hall, dest];
+  const tiles = findTilePath(HEARTH_TILES, from, to);
+  if (!tiles || tiles.length === 0) return [dest];
+  const world = tiles.map((tile) => worldCenter(tile.col, tile.row));
+  world[world.length - 1] = dest;
+  const pulled = pullWaypoints(fromX, fromY, world);
+  const points = pulled.length > 0 ? pulled : [dest];
   return points.filter((point, index) => {
     if (index === points.length - 1) return true;
     return Math.hypot(point.x - fromX, point.y - fromY) > 18;

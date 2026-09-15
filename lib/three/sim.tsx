@@ -349,7 +349,8 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
 
     if (scene === "hearth") {
       if (isDoorTile(tileAt(tiles, col, row))) {
-        walkTo(worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row), { kind: "door" });
+        const door = worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row);
+        walkTo(door.x, door.y, { kind: "door" });
         return;
       }
       const plot = HEARTH_PLOTS.find((item) => {
@@ -357,7 +358,8 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
         return Math.hypot(px.x - pos.x, px.y - pos.y) < TILE * 0.9;
       });
       if (plot) {
-        walkTo(worldCenter(plot.col, plot.row), { kind: "plot", plotId: plot.id });
+        const pos = worldCenter(plot.col, plot.row);
+        walkTo(pos.x, pos.y, { kind: "plot", plotId: plot.id });
         return;
       }
       const near = nearestHearthJob(px.x, px.y);
