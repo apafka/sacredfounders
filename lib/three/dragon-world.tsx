@@ -24,7 +24,7 @@ export function DragonWorldCanvas({
       style={{ width: "100%", height: "100%", display: "block", touchAction: "none" }}
       onCreated={({ gl }) => {
         gl.shadowMap.enabled = true;
-        gl.shadowMap.type = THREE.PCFSoftShadowMap;
+        gl.shadowMap.type = THREE.PCFShadowMap;
         gl.setClearColor(PALETTE.sky, 1);
       }}
     >

@@ -32,7 +32,7 @@ export function WorldLabel({
 }) {
   const texture = useMemo(() => makeLabelTexture(text), [text]);
   return (
-    <sprite position={position} scale={[1.7, 0.42, 1]} renderOrder={20}>
+    <sprite position={position} scale={[1.7, 0.42, 1]} renderOrder={20} raycast={() => undefined}>
       <spriteMaterial map={texture} transparent depthWrite={false} />
     </sprite>
   );

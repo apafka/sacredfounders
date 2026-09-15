@@ -340,8 +340,41 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     const tiles = scene === "valley" ? VALLEY_TILES : HEARTH_TILES;
     const { col, row } = tileFromWorld(px.x, px.y);
     if (!isWalkable(tileAt(tiles, col, row))) return;
+
+    if (scene === "hearth") {
+      if (isDoorTile(tileAt(tiles, col, row))) {
+        walkTo(worldCenter(HEARTH_SPOTS.door.col, HEARTH_SPOTS.door.row), { kind: "door" });
+        return;
+      }
+      const plot = HEARTH_PLOTS.find((item) => item.col === col && item.row === row);
+      if (plot) {
+        walkTo(worldCenter(plot.col, plot.row), { kind: "plot", plotId: plot.id });
+        return;
+      }
+      const near = nearestHearthJob(px.x, px.y);
+      if (near) {
+        walkTo(jobPos(near).x, jobPos(near).y, near);
+        return;
+      }
+    } else {
+      const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
+      if (Math.hypot(px.x - door.x, px.y - door.y) < TILE) {
+        hunting.current = false;
+        walkTo(door.x, door.y);
+        return;
+      }
+      if (peltOn && Math.hypot(px.x - wolf.current.x, px.y - wolf.current.y) < TILE) {
+        onValleyJob({ kind: "pelt" });
+        return;
+      }
+      if (wolf.current.hp > 0 && Math.hypot(px.x - wolf.current.x, px.y - wolf.current.y) < TILE * 1.5) {
+        onValleyJob({ kind: "wolf" });
+        return;
+      }
+    }
+
     hunting.current = false;
-    walkTo(px.x, px.y, scene === "hearth" && isDoorTile(tileAt(tiles, col, row)) ? { kind: "door" } : null);
+    walkTo(px.x, px.y, null);
   };
 
   useFrame((_, rawDt) => {

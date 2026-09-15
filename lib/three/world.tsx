@@ -84,7 +84,11 @@ function collectTiles(map: readonly string[], ch: string, skipBorder = false) {
 }
 
 function cottageRoof() {
-  const floors = collectTiles(HEARTH_TILES, ".");
+  const floors = collectTiles(HEARTH_TILES, ".").filter((cell) => {
+    const col = Math.floor(cell.x);
+    const row = Math.floor(cell.z);
+    return col >= 3 && col <= 16 && row >= 6 && row <= 10;
+  });
   if (floors.length === 0) return null;
   const xs = floors.map((f) => f.x);
   const zs = floors.map((f) => f.z);
@@ -94,8 +98,8 @@ function cottageRoof() {
   const maxZ = Math.max(...zs);
   const cx = (minX + maxX) / 2;
   const cz = (minZ + maxZ) / 2;
-  const w = maxX - minX + 1.4;
-  const d = maxZ - minZ + 1.2;
+  const w = maxX - minX + 1.15;
+  const d = maxZ - minZ + 1.05;
   return { cx, cz, w, d };
 }
 
@@ -140,13 +144,13 @@ export function HearthWorld({
       <InstancedBoxes cells={doors} color="#6a4a38" size={[0.98, 0.12, 0.98]} y={0.03} />
       <InstancedBoxes cells={walls} color={PALETTE.wall} size={[0.92, 1.2, 0.92]} y={0.6} castShadow />
       {roof ? (
-        <group position={[roof.cx, 1.55, roof.cz]}>
-          <mesh rotation={[0, 0, 0.42]} position={[0, 0.15, -roof.d * 0.12]} castShadow>
-            <boxGeometry args={[roof.w, 0.1, roof.d * 0.62]} />
+        <group position={[roof.cx, 1.85, roof.cz]}>
+          <mesh rotation={[0.48, 0, 0]} position={[0, 0.08, -roof.d * 0.22]} castShadow>
+            <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roof} roughness={0.85} />
           </mesh>
-          <mesh rotation={[0, 0, -0.42]} position={[0, 0.15, roof.d * 0.12]} castShadow>
-            <boxGeometry args={[roof.w, 0.1, roof.d * 0.62]} />
+          <mesh rotation={[-0.48, 0, 0]} position={[0, 0.08, roof.d * 0.22]} castShadow>
+            <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roofShadow} roughness={0.85} />
           </mesh>
         </group>
@@ -160,37 +164,69 @@ export function HearthWorld({
             ? plotStage(planted.plantedAt, planted.crop, Date.now())
             : "empty";
         return (
-          <group key={plot.id} position={[pos.x, 0.06, pos.z]}>
+          <group
+            key={plot.id}
+            position={[pos.x, 0.06, pos.z]}
+            onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+              event.stopPropagation();
+              onJob({ kind: "plot", plotId: plot.id });
+            }}
+          >
             <SoilBed position={[0, 0, 0]} />
             {stage !== "empty" ? <WheatStalk stage={stage} /> : null}
-            <mesh
-              position={[0, 0.3, 0]}
-              onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-                event.stopPropagation();
-                onJob({ kind: "plot", plotId: plot.id });
-              }}
-            >
-              <boxGeometry args={[0.9, 0.7, 0.9]} />
-              <meshBasicMaterial transparent opacity={0} />
-            </mesh>
           </group>
         );
       })}
 
-      <HearthFire position={[fire.x, 0, fire.z]} />
-      <ClickPad onClick={() => onJob({ kind: "fire" })} position={[fire.x, 0.4, fire.z]} />
-      <BedProp position={[bed.x, 0, bed.z]} />
-      <ClickPad onClick={() => onJob({ kind: "bed" })} position={[bed.x, 0.3, bed.z]} />
-      <ChestProp position={[chest.x, 0, chest.z]} />
-      <ClickPad onClick={() => onJob({ kind: "chest" })} position={[chest.x, 0.3, chest.z]} />
-      <BenchProp position={[bench.x, 0, bench.z]} />
-      <ClickPad onClick={() => onJob({ kind: "workbench" })} position={[bench.x, 0.3, bench.z]} />
-      <group position={[bren.x, 0, bren.z]}>
-        <BrenMesh />
-        <ClickPad onClick={() => onJob({ kind: "bren" })} position={[0, 0.5, 0]} size={[0.8, 1.2, 0.8]} />
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "fire" });
+        }}
+      >
+        <HearthFire position={[fire.x, 0, fire.z]} />
       </group>
-      <DoorProp position={[door.x, 0, door.z]} />
-      <ClickPad onClick={() => onJob({ kind: "door" })} position={[door.x, 0.6, door.z]} size={[0.9, 1.4, 0.6]} />
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "bed" });
+        }}
+      >
+        <BedProp position={[bed.x, 0, bed.z]} />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "chest" });
+        }}
+      >
+        <ChestProp position={[chest.x, 0, chest.z]} />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "workbench" });
+        }}
+      >
+        <BenchProp position={[bench.x, 0, bench.z]} />
+      </group>
+      <group
+        position={[bren.x, 0, bren.z]}
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "bren" });
+        }}
+      >
+        <BrenMesh />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "door" });
+        }}
+      >
+        <DoorProp position={[door.x, 0, door.z]} />
+      </group>
 
       <WorldLabel text="Garden" position={[garden.x, 1.15, garden.z]} />
       <WorldLabel text="Fire" position={[fire.x, 1.35, fire.z]} />
@@ -249,14 +285,38 @@ export function ValleyWorld({
       {trees.map((tree, i) => (
         <Pine key={i} position={[tree.x, 0, tree.z]} />
       ))}
-      <Tracks position={[tracks.x, 0, tracks.z]} />
-      <ClickPad onClick={() => onJob({ kind: "tracks" })} position={[tracks.x, 0.2, tracks.z]} size={[1.2, 0.4, 0.8]} />
-      <ScaleShard position={[scale.x, 0.08, scale.z]} />
-      <ClickPad onClick={() => onJob({ kind: "scale" })} position={[scale.x, 0.2, scale.z]} />
-      <CarvingStone position={[carving.x, 0, carving.z]} />
-      <ClickPad onClick={() => onJob({ kind: "carving" })} position={[carving.x, 0.3, carving.z]} />
-      <DoorProp position={[door.x, 0, door.z]} />
-      <ClickPad onClick={() => onJob({ kind: "door" })} position={[door.x, 0.6, door.z]} size={[0.9, 1.4, 0.6]} />
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "tracks" });
+        }}
+      >
+        <Tracks position={[tracks.x, 0, tracks.z]} />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "scale" });
+        }}
+      >
+        <ScaleShard position={[scale.x, 0.08, scale.z]} />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "carving" });
+        }}
+      >
+        <CarvingStone position={[carving.x, 0, carving.z]} />
+      </group>
+      <group
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          onJob({ kind: "door" });
+        }}
+      >
+        <DoorProp position={[door.x, 0, door.z]} />
+      </group>
       <WorldLabel text="Tracks" position={[tracks.x, 0.7, tracks.z]} />
       <WorldLabel text="Scale" position={[scale.x, 0.7, scale.z]} />
       <WorldLabel text="Carving" position={[carving.x, 0.85, carving.z]} />
@@ -292,29 +352,6 @@ function GroundPlane({
     >
       <planeGeometry args={[cols, rows]} />
       <meshStandardMaterial color={PALETTE.grassDark} roughness={1} />
-    </mesh>
-  );
-}
-
-function ClickPad({
-  onClick,
-  position,
-  size = [0.7, 0.7, 0.7],
-}: {
-  onClick: () => void;
-  position: [number, number, number];
-  size?: [number, number, number];
-}) {
-  return (
-    <mesh
-      position={position}
-      onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      <boxGeometry args={size} />
-      <meshBasicMaterial transparent opacity={0} />
     </mesh>
   );
 }
