@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
+import { hydratePlayer } from "./game-store";
 import type { PlayerState } from "./types";
 
 const COOKIE = "sf_pilgrim";
@@ -31,24 +32,8 @@ export function decodePlayer(token: string | undefined): PlayerState | null {
   if (sign(json) !== sig) return null;
   try {
     const parsed = JSON.parse(Buffer.from(json, "base64url").toString("utf8")) as PlayerState;
-    if (!parsed?.id || !parsed.basket || !parsed.plots || !parsed.walletAddress) return null;
-    return {
-      ...parsed,
-      fishSkill: parsed.fishSkill ?? 0,
-      cookSkill: parsed.cookSkill ?? 0,
-      lastFishAt: parsed.lastFishAt ?? 0,
-      xp: parsed.xp ?? 0,
-      level: parsed.level ?? 1,
-      hasSword: parsed.hasSword ?? false,
-      strikeDamage: parsed.strikeDamage ?? (parsed.hasSword ? 2 : 1),
-      basket: {
-        grain: parsed.basket.grain ?? 0,
-        root: parsed.basket.root ?? 0,
-        herb: parsed.basket.herb ?? 0,
-        fish: parsed.basket.fish ?? 0,
-        loaf: parsed.basket.loaf ?? 0,
-      },
-    };
+    if (!parsed?.id || !parsed.basket || !parsed.plots) return null;
+    return hydratePlayer(parsed);
   } catch {
     return null;
   }
@@ -62,10 +47,8 @@ export async function readPlayer(): Promise<PlayerState | null> {
 export async function writePlayer(player: PlayerState): Promise<void> {
   const jar = await cookies();
   const embedded = process.env.NODE_ENV === "production";
-  jar.set(COOKIE, encodePlayer(player), {
+  jar.set(COOKIE, encodePlayer(hydratePlayer(player)), {
     httpOnly: true,
-    // Third-party iframe on alanpafka.com needs SameSite=None; Secure.
-    // frame-ancestors still limits who may embed the app.
     sameSite: embedded ? "none" : "lax",
     secure: embedded,
     path: "/",

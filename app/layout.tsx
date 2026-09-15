@@ -14,7 +14,7 @@ const sans = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: "Dragon World · Sacred Founders",
-  description: "Hearth garden, Old Bren, and a door to the valley.",
+  description: "A hearth to keep. A baker on the path. A wolf at the forest edge.",
   manifest: "/manifest.webmanifest",
 };
 

@@ -1,27 +1,40 @@
 import * as Phaser from "phaser";
-import { ELITE_HP, PACK_HP, PLAYER_MAX_HP, RESPAWN_MS } from "@/lib/combat";
-import { BRIDGE_KEY, pullValleyStrike, type WorldBridge } from "../bridge";
-import { bindClickToMove, createGround, label, paintHpBar } from "../draw-map";
+import { PLAYER_MAX_HP } from "@/lib/combat";
+import { BRIDGE_KEY, type WorldBridge } from "../bridge";
+import {
+  bindClickToMove,
+  bindWalkKeys,
+  burst,
+  createGround,
+  floatText,
+  followActor,
+  label,
+  paintHpBar,
+  readAxis,
+} from "../draw-map";
 import {
   TILE,
-  VALLEY_ELITE,
   VALLEY_SPOTS,
   VALLEY_TILES,
-  VALLEY_WOLF_PADS,
+  VALLEY_TREES,
   isDoorTile,
   isWalkable,
   tileAt,
   tileFromWorld,
   worldCenter,
 } from "../layout";
-import { clampToRect, slide, stepToward } from "../move";
+import { slide, stepToward } from "../move";
+import { consumeInteract, windowAxis } from "../keys";
 import {
+  ATTACK_RANGE,
+  PLAYER_ATTACK_MS,
+  PLAYER_DAMAGE,
   PLAYER_SPEED,
-  nearestLiving,
-  tickPack,
+  STRIKE_RANGE,
+  createWolf,
+  tickWolf,
   tryStrike,
-  type Actor,
-  type PackWolf,
+  type Wolf,
 } from "../wolf-ai";
 
 const REACH = 10;
@@ -30,19 +43,21 @@ const MARGIN = TILE + 8;
 export class ValleyScene extends Phaser.Scene {
   private pilgrim!: Phaser.GameObjects.Image;
   private marker!: Phaser.GameObjects.Image;
-  private hpText!: Phaser.GameObjects.Text;
+  private wolfSprite!: Phaser.GameObjects.Image;
+  private peltSprite!: Phaser.GameObjects.Image;
   private playerBar!: Phaser.GameObjects.Graphics;
+  private wolfBar!: Phaser.GameObjects.Graphics;
   private dest = { x: 0, y: 0 };
   private moving = false;
-  private body: Actor = { x: 0, y: 0, hp: PLAYER_MAX_HP };
-  private beasts: PackWolf[] = [];
-  private sprites: Phaser.GameObjects.Image[] = [];
-  private bars: Phaser.GameObjects.Graphics[] = [];
-  private pendingStrike = false;
-  private pendingId: number | null = null;
-  private lastHud = "";
+  private hunting = false;
+  private body = { x: 0, y: 0, hp: PLAYER_MAX_HP };
+  private wolf!: Wolf;
+  private attackCd = 0;
   private usedDoor = false;
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private reportedDown = false;
+  private keys: Record<string, Phaser.Input.Keyboard.Key> | undefined;
+  private persistAt = 0;
+  private bob = 0;
 
   constructor() {
     super("valley");
@@ -54,114 +69,132 @@ export class ValleyScene extends Phaser.Scene {
 
   create() {
     createGround(this, VALLEY_TILES);
+
+    for (const tree of VALLEY_TREES) {
+      const pos = worldCenter(tree.col, tree.row);
+      this.add.image(pos.x, pos.y - 6, "sprite-tree").setDepth(6 + pos.y);
+    }
+
+    const tracks = worldCenter(VALLEY_SPOTS.tracks.col, VALLEY_SPOTS.tracks.row);
+    this.add.image(tracks.x, tracks.y, "sprite-tracks").setDepth(2);
+    label(this, tracks.x, tracks.y - 12, "Tracks");
+
+    const scale = worldCenter(VALLEY_SPOTS.scale.col, VALLEY_SPOTS.scale.row);
+    this.add.image(scale.x, scale.y, "sprite-scale").setDepth(3);
+    label(this, scale.x, scale.y - 12, "Scale");
+
+    const carving = worldCenter(VALLEY_SPOTS.carving.col, VALLEY_SPOTS.carving.row);
+    this.add.image(carving.x, carving.y, "sprite-carving").setDepth(3);
+    label(this, carving.x, carving.y - 12, "Carving");
+
     const doorPos = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
     this.add.image(doorPos.x, doorPos.y, "sprite-door").setDepth(3);
-    label(this, doorPos.x, doorPos.y - 20, "Door");
+    label(this, doorPos.x, doorPos.y - 20, "Home");
+    label(this, worldCenter(10, 4).x, worldCenter(10, 4).y - 18, "Forest edge");
 
-    const spawn = worldCenter(VALLEY_SPOTS.spawn.col, VALLEY_SPOTS.spawn.row);
-    this.body = { x: spawn.x, y: spawn.y, hp: PLAYER_MAX_HP };
+    const player = this.bridge().getPlayer();
+    const spawn = player.position && player.scene === "valley"
+      ? player.position
+      : worldCenter(VALLEY_SPOTS.spawn.col, VALLEY_SPOTS.spawn.row);
+    this.body = { x: spawn.x, y: spawn.y, hp: player.health || PLAYER_MAX_HP };
     this.dest = { ...spawn };
-    this.pendingStrike = false;
-    this.pendingId = null;
     this.usedDoor = false;
+    this.hunting = false;
+    this.reportedDown = !player.wolf.alive;
+    this.attackCd = 0;
 
-    this.beasts = [
-      ...VALLEY_WOLF_PADS.map((pad, i) => {
-        const pos = worldCenter(pad.col, pad.row);
-        return {
-          id: i,
-          kind: "pack" as const,
-          x: pos.x,
-          y: pos.y,
-          hp: PACK_HP,
-          maxHp: PACK_HP,
-          telegraph: 0,
-          lunging: 0,
-          spawnX: pos.x,
-          spawnY: pos.y,
-          respawnIn: 0,
-        };
-      }),
-      (() => {
-        const pos = worldCenter(VALLEY_ELITE.col, VALLEY_ELITE.row);
-        return {
-          id: VALLEY_WOLF_PADS.length,
-          kind: "elite" as const,
-          x: pos.x,
-          y: pos.y,
-          hp: ELITE_HP,
-          maxHp: ELITE_HP,
-          telegraph: 0,
-          lunging: 0,
-          spawnX: pos.x,
-          spawnY: pos.y,
-          respawnIn: 0,
-        };
-      })(),
-    ];
-
-    const elitePos = worldCenter(VALLEY_ELITE.col, VALLEY_ELITE.row);
-    label(this, elitePos.x, elitePos.y - 22, "Dire wolf");
+    const wolfPad = worldCenter(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
+    this.wolf = createWolf(wolfPad.x, wolfPad.y, player.wolf.alive ? player.wolf.hp || 12 : 0);
+    if (!player.wolf.alive) {
+      this.wolf.hp = 0;
+      this.wolf.mode = "dead";
+    }
 
     this.pilgrim = this.add.image(spawn.x, spawn.y, "sprite-pilgrim").setDepth(10);
     this.playerBar = this.add.graphics().setDepth(16);
-    this.sprites = this.beasts.map((beast) => {
-      const sprite = this.add.image(beast.x, beast.y, "sprite-wolf").setDepth(10);
-      if (beast.kind === "elite") sprite.setScale(1.45).setTint(0x3a1c12);
-      return sprite;
-    });
-    this.bars = this.beasts.map(() => this.add.graphics().setDepth(16));
+    this.wolfSprite = this.add.image(this.wolf.x, this.wolf.y, "sprite-wolf").setDepth(10);
+    this.wolfBar = this.add.graphics().setDepth(16);
+    this.peltSprite = this.add
+      .image(wolfPad.x, wolfPad.y + 10, "sprite-pelt")
+      .setDepth(8)
+      .setVisible(player.wolf.peltDropped && !player.wolf.peltTaken);
     this.marker = this.add.image(spawn.x, spawn.y, "sprite-marker").setDepth(9).setVisible(false);
-    this.hpText = this.add
-      .text(TILE, TILE / 2, "", {
-        fontFamily: "Georgia, serif",
-        fontSize: "11px",
-        color: "#2c241c",
-        backgroundColor: "#f3efe4",
-        padding: { x: 6, y: 3 },
-      })
-      .setDepth(20)
-      .setResolution(2);
+    followActor(this, this.pilgrim, VALLEY_TILES);
 
     this.bridge().emit({
       type: "hint",
-      text: "Three wolves and a dire wolf. Tap to walk, Strike to hit. HP bars sit over each. They return after a breath.",
+      text: player.wolf.alive
+        ? "The trees close in. A wolf at the forest edge. Click it to fight."
+        : player.wolf.peltDropped
+          ? "The wolf is still. A pelt in the grass."
+          : "The forest keeps its own counsel. What's beyond those pines?",
     });
-    this.publishHud();
 
     this.input.setDefaultCursor("pointer");
     bindClickToMove(this, (x, y) => this.onTap(x, y));
-    this.game.events.on("valley-strike", this.strike, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.game.events.off("valley-strike", this.strike, this);
-    });
-
-    const keyboard = this.input.keyboard;
-    if (keyboard) {
-      this.keys = keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE") as Record<
-        string,
-        Phaser.Input.Keyboard.Key
-      >;
-    }
+    this.keys = bindWalkKeys(this);
+    this.game.canvas.setAttribute("tabindex", "0");
+    this.game.canvas.focus();
   }
 
   private onTap(x: number, y: number) {
     const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
     if (Math.hypot(x - door.x, y - door.y) < TILE) {
+      this.hunting = false;
       this.walkTo(door);
       return;
     }
-    const tapped = this.beasts.find(
-      (beast) => beast.hp > 0 && Math.hypot(x - beast.x, y - beast.y) < TILE * (beast.kind === "elite" ? 1.6 : 1.4),
-    );
-    if (tapped) {
-      this.pendingId = tapped.id;
-      this.strike();
+
+    if (this.peltSprite.visible && Math.hypot(x - this.peltSprite.x, y - this.peltSprite.y) < TILE) {
+      if (Math.hypot(this.body.x - this.peltSprite.x, this.body.y - this.peltSprite.y) < TILE * 1.2) {
+        this.takePelt();
+      } else {
+        this.walkTo({ x: this.peltSprite.x, y: this.peltSprite.y });
+      }
       return;
     }
+
+    const tracks = worldCenter(VALLEY_SPOTS.tracks.col, VALLEY_SPOTS.tracks.row);
+    if (Math.hypot(x - tracks.x, y - tracks.y) < TILE * 1.2) {
+      this.bridge().emit({
+        type: "hint",
+        text: "Prints larger than any wolf. Whatever walked here did not hurry.",
+      });
+    }
+    const scale = worldCenter(VALLEY_SPOTS.scale.col, VALLEY_SPOTS.scale.row);
+    if (Math.hypot(x - scale.x, y - scale.y) < TILE) {
+      this.bridge().emit({
+        type: "hint",
+        text: "A scale in the soil, too broad for a bird. You leave it where it caught the light.",
+      });
+    }
+    const carving = worldCenter(VALLEY_SPOTS.carving.col, VALLEY_SPOTS.carving.row);
+    if (Math.hypot(x - carving.x, y - carving.y) < TILE) {
+      this.bridge().emit({
+        type: "hint",
+        text: "An old spiral cut into stone. Villagers tell two stories. Neither agrees.",
+      });
+    }
+
+    if (this.wolf.hp > 0 && Math.hypot(x - this.wolf.x, y - this.wolf.y) < TILE * 1.5) {
+      this.hunting = true;
+      this.bridge().emit({ type: "hint", text: "You set on the wolf." });
+      this.tryAttack();
+      return;
+    }
+
     const { col, row } = tileFromWorld(x, y);
     if (!isWalkable(tileAt(VALLEY_TILES, col, row))) return;
+    this.hunting = false;
     this.walkTo({ x, y });
+  }
+
+  private takePelt() {
+    if (!this.peltSprite.visible || this.bridge().isBusy()) return;
+    this.peltSprite.setVisible(false);
+    burst(this, this.peltSprite.x, this.peltSprite.y, 0x8a6a4a);
+    this.bridge().emit({ type: "pickup-pelt" });
+    this.bridge().emit({ type: "toast", text: "Wolf Pelt acquired." });
   }
 
   private walkTo(pos: { x: number; y: number }) {
@@ -171,69 +204,52 @@ export class ValleyScene extends Phaser.Scene {
     this.pilgrim.setFlipX(pos.x < this.body.x);
   }
 
-  private target(): PackWolf | null {
-    if (this.pendingId != null) {
-      const picked = this.beasts.find((beast) => beast.id === this.pendingId && beast.hp > 0);
-      if (picked) return picked;
+  private tryAttack() {
+    if (this.wolf.hp <= 0 || this.body.hp <= 0) {
+      this.hunting = false;
+      return;
     }
-    return nearestLiving(this.body, this.beasts);
-  }
-
-  private strike = () => {
-    const target = this.target();
-    const damage = this.bridge().getPlayer().strikeDamage ?? 1;
-    if (!target) return false;
-    const next = tryStrike(this.body, target, damage);
+    const next = tryStrike(this.body, this.wolf, PLAYER_DAMAGE);
     if (next) {
-      this.pendingStrike = false;
-      this.pendingId = null;
-      const idx = this.beasts.findIndex((beast) => beast.id === target.id);
-      const died = next.hp <= 0 && target.hp > 0;
-      this.beasts[idx] = { ...this.beasts[idx], ...next, respawnIn: died ? RESPAWN_MS : 0 };
-      if (died) {
-        this.sprites[idx].setVisible(false);
-        this.bridge().emit({ type: "wolf-loot", kind: target.kind });
-        this.bridge().emit({
-          type: "hint",
-          text:
-            target.kind === "elite"
-              ? "The dire wolf falls. It will take the pad again."
-              : "A wolf falls. Another will take its pad.",
-        });
-      }
-      this.publishHud();
+      this.wolf = { ...this.wolf, hp: next.hp, hitFlash: 180, mode: this.wolf.hp <= 0 ? "dead" : this.wolf.mode };
+      this.attackCd = PLAYER_ATTACK_MS;
+      this.wolfSprite.setTint(0xf3efe4);
+      floatText(this, this.wolf.x, this.wolf.y - 18, `-${PLAYER_DAMAGE}`, "#f3efe4");
+      burst(this, this.wolf.x, this.wolf.y, 0xb33a2b);
+      this.pilgrim.setFlipX(this.wolf.x < this.body.x);
+      if (this.wolf.hp <= 0) this.onWolfDown();
       return true;
     }
-    if (this.body.hp > 0 && this.beasts.some((beast) => beast.hp > 0)) {
-      this.pendingStrike = true;
-      this.pendingId = target.id;
-      this.walkTo({ x: target.x, y: target.y });
-      this.bridge().emit({ type: "hint", text: "Closing in to strike." });
-    }
+    this.hunting = true;
+    this.walkTo({ x: this.wolf.x, y: this.wolf.y });
     return false;
-  };
+  }
 
-  private publishHud() {
-    const you = Math.max(0, this.body.hp);
-    const packLive = this.beasts.filter((beast) => beast.kind === "pack" && beast.hp > 0).length;
-    const elite = this.beasts.find((beast) => beast.kind === "elite");
-    const eliteHp = Math.max(0, elite?.hp ?? 0);
-    const player = this.bridge().getPlayer();
-    const line =
-      you <= 0
-        ? "You fall. Use the door. The hearth still stands."
-        : `You ${you} · Wolves ${packLive}/3 · Dire ${eliteHp} · Lv ${player.level} (${player.xp} xp)${player.hasSword ? " · Iron Blade" : ""}`;
-    this.hpText.setText(line);
-    const key = `${you}:${packLive}:${eliteHp}:${player.xp}:${player.level}:${player.hasSword}`;
-    if (key !== this.lastHud) {
-      this.lastHud = key;
-      this.bridge().emit({ type: "combat", you, wolf: packLive, elite: eliteHp, xp: player.xp, level: player.level });
-    }
+  private onWolfDown() {
+    if (this.reportedDown) return;
+    this.reportedDown = true;
+    this.hunting = false;
+    this.wolf.mode = "dead";
+    this.wolfSprite.setTint(0x2c241c);
+    this.tweens.add({
+      targets: this.wolfSprite,
+      alpha: 0,
+      scale: 0.6,
+      duration: 420,
+      onComplete: () => this.wolfSprite.setVisible(false),
+    });
+    this.peltSprite.setPosition(this.wolf.x, this.wolf.y + 8).setVisible(true);
+    floatText(this, this.wolf.x, this.wolf.y - 10, "The wolf falls", "#c4a35a");
+    this.bridge().emit({ type: "wolf-down" });
+    this.bridge().emit({ type: "hint", text: "A pelt in the grass. Click it." });
   }
 
   private playerStep(x: number, y: number) {
-    const clamped = clampToRect(x, y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8);
-    return slide(VALLEY_TILES, this.body.x, this.body.y, clamped.x, clamped.y);
+    const maxX = TILE * ((VALLEY_TILES[0]?.length ?? 1) - 1) - 8;
+    const maxY = TILE * (VALLEY_TILES.length - 1) - 8;
+    const cx = Math.max(MARGIN, Math.min(maxX, x));
+    const cy = Math.max(MARGIN, Math.min(maxY, y));
+    return slide(VALLEY_TILES, this.body.x, this.body.y, cx, cy);
   }
 
   private openHearthDoor() {
@@ -241,46 +257,57 @@ export class ValleyScene extends Phaser.Scene {
     const { col, row } = tileFromWorld(this.body.x, this.body.y);
     if (!isDoorTile(tileAt(VALLEY_TILES, col, row))) return;
     this.usedDoor = true;
+    this.bridge().emit({ type: "health", health: this.body.hp });
     this.bridge().emit({ type: "door", scene: "hearth" });
   }
 
   update(_time: number, delta: number) {
     const dt = delta / 1000;
-    if (pullValleyStrike()) this.strike();
-    if (this.keys?.SPACE && Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
-      this.strike();
-    }
+    this.attackCd = Math.max(0, this.attackCd - delta);
+    this.bob += dt;
 
-    const chase = this.target();
-    if (this.pendingStrike && chase && this.body.hp > 0) {
-      if (tryStrike(this.body, chase, this.bridge().getPlayer().strikeDamage ?? 1)) this.strike();
-      else {
-        this.dest = { x: chase.x, y: chase.y };
-        this.moving = true;
+    if (this.peltSprite.visible && Math.hypot(this.body.x - this.peltSprite.x, this.body.y - this.peltSprite.y) < REACH + 8) {
+      if (this.moving && Math.hypot(this.dest.x - this.peltSprite.x, this.dest.y - this.peltSprite.y) < 12) {
+        this.moving = false;
+        this.marker.setVisible(false);
+        this.takePelt();
       }
     }
 
-    let ax = 0;
-    let ay = 0;
-    if (this.keys) {
-      if (this.keys.A.isDown || this.keys.LEFT.isDown) ax -= 1;
-      if (this.keys.D.isDown || this.keys.RIGHT.isDown) ax += 1;
-      if (this.keys.W.isDown || this.keys.UP.isDown) ay -= 1;
-      if (this.keys.S.isDown || this.keys.DOWN.isDown) ay += 1;
+    if ((this.keys?.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) || consumeInteract()) {
+      if (this.peltSprite.visible && Math.hypot(this.body.x - this.peltSprite.x, this.body.y - this.peltSprite.y) < TILE * 1.4) {
+        this.takePelt();
+      } else if (this.wolf.hp > 0 && Math.hypot(this.body.x - this.wolf.x, this.body.y - this.wolf.y) < STRIKE_RANGE) {
+        this.hunting = true;
+        this.tryAttack();
+      }
     }
-    if (ax !== 0 || ay !== 0) {
-      this.pendingStrike = false;
-      this.pendingId = null;
+
+    const axisWin = windowAxis();
+    const axisKeys = readAxis(this.keys);
+    const axis = axisWin.x !== 0 || axisWin.y !== 0 ? axisWin : axisKeys;
+    if (axis.x !== 0 || axis.y !== 0) {
+      this.hunting = false;
       this.moving = false;
       this.marker.setVisible(false);
-      const len = Math.hypot(ax, ay) || 1;
+      const len = Math.hypot(axis.x, axis.y) || 1;
       const next = this.playerStep(
-        this.body.x + (ax / len) * PLAYER_SPEED * dt,
-        this.body.y + (ay / len) * PLAYER_SPEED * dt,
+        this.body.x + (axis.x / len) * PLAYER_SPEED * dt,
+        this.body.y + (axis.y / len) * PLAYER_SPEED * dt,
       );
       this.body.x = next.x;
       this.body.y = next.y;
-      this.pilgrim.setFlipX(ax < 0);
+      this.pilgrim.setFlipX(axis.x < 0);
+    } else if (this.hunting && this.wolf.hp > 0 && this.body.hp > 0) {
+      const dist = Math.hypot(this.body.x - this.wolf.x, this.body.y - this.wolf.y);
+      if (dist <= ATTACK_RANGE && this.attackCd <= 0) this.tryAttack();
+      else if (dist > ATTACK_RANGE) {
+        const stepped = stepToward(this.body.x, this.body.y, this.wolf.x, this.wolf.y, PLAYER_SPEED, dt, REACH);
+        const clamped = this.playerStep(stepped.x, stepped.y);
+        this.body.x = clamped.x;
+        this.body.y = clamped.y;
+        this.pilgrim.setFlipX(this.wolf.x < this.body.x);
+      }
     } else if (this.moving) {
       const stepped = stepToward(this.body.x, this.body.y, this.dest.x, this.dest.y, PLAYER_SPEED, dt, REACH);
       const clamped = this.playerStep(stepped.x, stepped.y);
@@ -289,36 +316,59 @@ export class ValleyScene extends Phaser.Scene {
       if (stepped.arrived) {
         this.moving = false;
         this.marker.setVisible(false);
-        if (this.pendingStrike) this.strike();
       }
     }
 
-    const ticked = tickPack(this.body, this.beasts, dt);
-    this.body = { ...ticked.player, ...this.playerStep(ticked.player.x, ticked.player.y) };
-    this.beasts = ticked.wolves.map((beast) => ({
-      ...beast,
-      ...clampToRect(beast.x, beast.y, MARGIN, MARGIN, TILE * 19 - 8, TILE * 13 - 8),
-    }));
-
-    this.pilgrim.setPosition(this.body.x, this.body.y).setDepth(10 + this.body.y);
-    paintHpBar(this.playerBar, this.body.x, this.body.y - 18, this.body.hp / PLAYER_MAX_HP, 26);
-
-    this.beasts.forEach((beast, i) => {
-      const sprite = this.sprites[i];
-      const alive = beast.hp > 0;
-      sprite.setVisible(alive);
-      if (!alive) {
-        this.bars[i].clear();
-        return;
+    if (this.wolf.hp > 0) {
+      const ticked = tickWolf(this.body, this.wolf, dt, Math.random, {
+        minX: MARGIN,
+        minY: MARGIN,
+        maxX: TILE * 22,
+        maxY: TILE * 8,
+      });
+      this.wolf = ticked.wolf;
+      if (ticked.wolfHit && ticked.player.hp < this.body.hp) {
+        floatText(this, this.body.x, this.body.y - 18, `-${ticked.wolfHit}`, "#b33a2b");
+        this.cameras.main.shake(80, 0.004);
       }
-      sprite.setPosition(beast.x, beast.y).setDepth(10 + beast.y);
-      if (beast.telegraph > 0 || beast.lunging > 0) sprite.setTint(0xb33a2b);
-      else if (beast.kind === "elite") sprite.setTint(0x3a1c12);
-      else sprite.clearTint();
-      paintHpBar(this.bars[i], beast.x, beast.y - (beast.kind === "elite" ? 22 : 16), beast.hp / beast.maxHp, beast.kind === "elite" ? 36 : 26);
-    });
+      this.body = ticked.player;
+    }
+
+    if (this.body.hp <= 0) {
+      this.body.hp = PLAYER_MAX_HP;
+      const spawn = worldCenter(VALLEY_SPOTS.spawn.col, VALLEY_SPOTS.spawn.row);
+      this.body.x = spawn.x;
+      this.body.y = spawn.y;
+      this.hunting = false;
+      this.bridge().emit({ type: "health", health: this.body.hp });
+      this.bridge().emit({ type: "hint", text: "You wake with the fire still in you. The hearth would take you back." });
+    }
+
+    this.pilgrim.setPosition(this.body.x, this.body.y + Math.sin(this.bob * 8) * (this.moving || this.hunting ? 1 : 0));
+    this.pilgrim.setDepth(10 + this.body.y);
+    paintHpBar(this.playerBar, this.body.x, this.body.y - 18, this.body.hp / PLAYER_MAX_HP, 28);
+
+    const alive = this.wolf.hp > 0;
+    this.wolfSprite.setVisible(alive);
+    if (alive) {
+      this.wolfSprite.setPosition(this.wolf.x, this.wolf.y).setDepth(10 + this.wolf.y);
+      if (this.wolf.hitFlash <= 0) {
+        if (this.wolf.mode === "attack" || this.wolf.mode === "chase") this.wolfSprite.setTint(0x8a4a32);
+        else this.wolfSprite.clearTint();
+      }
+      paintHpBar(this.wolfBar, this.wolf.x, this.wolf.y - 16, this.wolf.hp / this.wolf.maxHp, 32);
+    } else {
+      this.wolfBar.clear();
+    }
 
     this.openHearthDoor();
-    this.publishHud();
+
+    this.persistAt += delta;
+    if (this.persistAt > 900) {
+      this.persistAt = 0;
+      this.bridge().emit({ type: "health", health: this.body.hp });
+      this.bridge().emit({ type: "combat", you: this.body.hp });
+      this.bridge().emit({ type: "position", x: this.body.x, y: this.body.y });
+    }
   }
 }

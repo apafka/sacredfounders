@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthControls } from "./auth-controls";
 import { WorldStage } from "./world-stage";
-import type { ClassId, CropId, PlayerState } from "@/lib/types";
+import { harvest, pickupPelt, plant, sellWheat, setHealth, setPosition, setScene, wolfFalls } from "@/lib/game-store";
+import { createLocalStoragePersistence, mergeSession, toSnapshot } from "@/lib/game/persistence";
+import type { PlayerState } from "@/lib/types";
 
 type View = { player: PlayerState | null; message?: string };
 
@@ -19,34 +21,95 @@ async function act(action: string, extra: Record<string, unknown> = {}) {
 }
 
 export function GameShell() {
+  const persist = useRef(createLocalStoragePersistence());
+  const playerRef = useRef<PlayerState | null>(null);
   const [player, setPlayer] = useState<PlayerState | null>(null);
   const [message, setMessage] = useState("");
+  const [hint, setHint] = useState("");
+  const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [seed, setSeed] = useState<CropId>("grain");
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [dialogueOpen, setDialogueOpen] = useState(false);
 
-  const apply = useCallback((data: View) => {
-    setPlayer(data.player);
-    if (data.message) setMessage(data.message);
+  const commit = useCallback((next: PlayerState, note?: string, cookie = true) => {
+    playerRef.current = next;
+    setPlayer(next);
+    persist.current.save(toSnapshot(next));
+    if (note) setMessage(note);
+    if (!cookie) return;
+    void fetch("/api/game", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "sync", player: next }),
+    }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
     fetch("/api/game")
       .then((r) => r.json())
-      .then((data: View) => setPlayer(data.player))
+      .then((data: View) => {
+        if (!data.player) {
+          setPlayer(null);
+          return;
+        }
+        const local = persist.current.load(data.player.id);
+        const merged = mergeSession(data.player, local);
+        playerRef.current = merged;
+        setPlayer(merged);
+      })
       .finally(() => setLoaded(true));
   }, []);
 
-  async function run(action: string, extra: Record<string, unknown> = {}) {
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(""), 2400);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.key === "i" || event.key === "I") {
+        event.preventDefault();
+        setInventoryOpen((open) => !open);
+        setDialogueOpen(false);
+      }
+      if (event.key === "Escape") {
+        setInventoryOpen(false);
+        setDialogueOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  async function enter() {
     if (busy) return;
     setBusy(true);
     try {
-      apply(await act(action, extra));
+      const data = await act("enter");
+      if (data.player) commit(data.player, data.message);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed");
     } finally {
       setBusy(false);
     }
+  }
+
+  function applyLocal(next: { player: PlayerState; ok: boolean; message: string }, cookie = true) {
+    if (!next.ok) {
+      setHint(next.message);
+      return;
+    }
+    commit(next.player, next.message, cookie);
+    if (next.message.startsWith("+") || next.message.includes("Pelt") || next.message.includes("Harvested") || next.message.includes("Planted")) {
+      setToast(next.message);
+    }
+  }
+
+  function current(): PlayerState {
+    return playerRef.current!;
   }
 
   if (!loaded) {
@@ -60,64 +123,50 @@ export function GameShell() {
   if (!player) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
-        <p className="eyebrow">Sacred Founders</p>
-        <h1>Dragon World</h1>
-        <p className="lede">A hearth to keep. A door to the valley. You keep what you earn.</p>
-        <AuthControls busy={busy} onEnter={() => run("enter")} />
-        {message ? <p className="banner">{message}</p> : null}
-      </main>
-    );
-  }
-
-  if (!player.classId) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-6 py-16">
-        <p className="eyebrow">Pilgrim Gate</p>
-        <h1>How will you walk?</h1>
-        <p className="lede">This stays on your pilgrim. Refresh keeps it.</p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <button className="card-btn" type="button" disabled={busy} onClick={() => run("choose-class", { classId: "fighter" satisfies ClassId })}>
-            <strong>Fighter</strong>
-            <span>Toward paladin-like power. The valley wolf answers your strike.</span>
-          </button>
-          <button className="card-btn" type="button" disabled={busy} onClick={() => run("choose-class", { classId: "spiritual" satisfies ClassId })}>
-            <strong>Spiritual</strong>
-            <span>Development through garden, herb, and quiet trade with Old Bren.</span>
-          </button>
-        </div>
+        <p className="eyebrow">Dragon World</p>
+        <h1>A hearth to keep</h1>
+        <p className="lede">
+          You live here. Farm a week, or walk out and meet a wolf. The world does not judge.
+        </p>
+        <AuthControls busy={busy} onEnter={enter} />
         {message ? <p className="banner">{message}</p> : null}
       </main>
     );
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 py-4 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
-        <div>
-          <p className="eyebrow">Sacred Founders · Dragon World</p>
-          <h1 className="!text-[1.65rem]">{player.scene === "valley" ? "Northern hills" : "Hearth"}</h1>
-        </div>
-        <p className="text-sm text-[var(--muted)]">
-          {player.name} · {player.classId === "fighter" ? "Fighter" : "Spiritual"} · {player.coins} coins · lv {player.level} ({player.xp} xp)
-          {player.hasSword ? " · Iron Blade" : ""} · farm {player.farmSkill}
-        </p>
-      </header>
-      {message ? <p className="banner">{message}</p> : null}
-      {player.whisper ? <p className="mt-2 text-sm text-[var(--muted)]">{player.whisper}</p> : null}
-
+    <div className="game-app">
       <WorldStage
         player={player}
-        seed={seed}
-        setSeed={setSeed}
         busy={busy}
-        onPlant={(plotId) => run("plant", { plotId, crop: seed })}
-        onHarvest={(plotId) => run("harvest", { plotId })}
-        onFish={() => run("fish")}
-        onCook={() => run("cook")}
-        onSell={(good) => run("sell", { good })}
-        onDoor={(scene) => run("door", { scene })}
-        onLoot={(kind) => run("wolf-loot", { kind })}
-        onBuySword={() => run("buy-sword")}
+        inventoryOpen={inventoryOpen}
+        dialogueOpen={dialogueOpen}
+        toast={toast}
+        hint={hint}
+        onHint={setHint}
+        onToast={setToast}
+        onPlant={(plotId) => applyLocal(plant(current(), plotId, "grain"))}
+        onHarvest={(plotId) => applyLocal(harvest(current(), plotId))}
+        onSell={() => {
+          applyLocal(sellWheat(current()));
+          setDialogueOpen(false);
+        }}
+        onDoor={(scene) => applyLocal(setScene(current(), scene))}
+        onWolfDown={() => applyLocal(wolfFalls(current()))}
+        onPickupPelt={() => applyLocal(pickupPelt(current()))}
+        onHealth={(health) => {
+          const cur = current();
+          if (cur.health === health) return;
+          commit(setHealth(cur, health), undefined, false);
+        }}
+        onPosition={(x, y) => {
+          const cur = current();
+          const pos = cur.position;
+          if (pos && Math.hypot(pos.x - x, pos.y - y) < 4) return;
+          commit(setPosition(cur, x, y), undefined, false);
+        }}
+        onToggleInventory={(open) => setInventoryOpen((prev) => (open == null ? !prev : open))}
+        onToggleDialogue={(open) => setDialogueOpen((prev) => (open == null ? !prev : open))}
       />
     </div>
   );

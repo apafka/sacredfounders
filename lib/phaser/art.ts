@@ -1,23 +1,17 @@
 /**
- * Placeholder textures are generated in BootScene (colored 16–32px tiles).
+ * Placeholder textures are generated in BootScene (colored tiles).
  *
  * Art-pack swap path
  * ------------------
- * 1. Drop PNGs in `public/game/art/` using the filenames below (32×32 tiles,
- *    16×20 pilgrim, 22×16 wolf — or any size; Phaser will display at TILE).
- * 2. Ground tiles (`grass.png`, `path.png`, `floor.png`, `creek.png`,
- *    `wall.png`, `door-tile.png`) are stitched into the Phaser tileset
- *    `world-tiles` in that order. Keep them 32×32 and in that sequence.
+ * 1. Drop PNGs in `public/game/art/` using the filenames below.
+ * 2. Ground tiles are stitched into the Phaser tileset `world-tiles` in TILESET_KEYS order.
  * 3. Set `USE_ART_PACK = true`.
- * 4. BootScene will `load.image` these keys instead of drawing rectangles.
- *
- * Do not change the *keys* (left column) without updating the scenes.
+ * 4. Do not change texture keys without updating the scenes.
  */
 export const USE_ART_PACK = false;
 
 export const ART_PACK_DIR = "/game/art";
 
-/** Phaser texture key → file under public/game/art/ */
 export const ART_PACK_FILES: Record<string, string> = {
   "tile-grass": "grass.png",
   "tile-path": "path.png",
@@ -25,18 +19,25 @@ export const ART_PACK_FILES: Record<string, string> = {
   "tile-creek": "creek.png",
   "tile-wall": "wall.png",
   "tile-door": "door-tile.png",
+  "tile-forest": "forest.png",
   "tile-soil": "soil.png",
+  "crop-grain-planted": "grain-planted.png",
+  "crop-grain-sprout": "grain-sprout.png",
   "crop-grain-grow": "grain-grow.png",
   "crop-grain-ready": "grain-ready.png",
-  "crop-root-grow": "root-grow.png",
-  "crop-root-ready": "root-ready.png",
-  "crop-herb-grow": "herb-grow.png",
-  "crop-herb-ready": "herb-ready.png",
   "sprite-pilgrim": "pilgrim.png",
   "sprite-wolf": "wolf.png",
-  "sprite-kitchen": "kitchen.png",
-  "sprite-stall": "stall.png",
+  "sprite-bren": "bren.png",
+  "sprite-bed": "bed.png",
+  "sprite-fire": "fire.png",
+  "sprite-chest": "chest.png",
+  "sprite-bench": "bench.png",
   "sprite-door": "door.png",
+  "sprite-tree": "tree.png",
+  "sprite-tracks": "tracks.png",
+  "sprite-scale": "scale.png",
+  "sprite-carving": "carving.png",
+  "sprite-pelt": "pelt.png",
   "sprite-marker": "marker.png",
 };
 
@@ -51,20 +52,18 @@ export const PLACEHOLDER_COLORS = {
   creekEdge: 0x557070,
   grass: 0x8a9a6a,
   grassEdge: 0x6f7d54,
+  forest: 0x4f5d3e,
+  forestEdge: 0x3a452e,
   doorTile: 0x6a4a38,
   doorTileEdge: 0x3d2a1c,
   soil: 0x8a6a4a,
+  grainPlanted: 0x6b5344,
+  grainSprout: 0x7a8a4a,
   grainGrow: 0x9a8a4a,
   grainReady: 0xc4a35a,
-  rootGrow: 0x8a5a3a,
-  rootReady: 0xa56b48,
-  herbGrow: 0x5d6a42,
-  herbReady: 0x6d7a4e,
-  pilgrim: 0x2c241c,
-  pilgrimHead: 0x8b5e3c,
+  pilgrim: 0x3e4a5c,
+  pilgrimHead: 0xc4a07a,
   wolf: 0x5a4630,
-  kitchen: 0x7a5a40,
-  stall: 0x8b5e3c,
   door: 0x5a4030,
   marker: 0xe8d9b0,
 } as const;
