@@ -5,6 +5,7 @@ import { useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import type { Group, PointLight } from "three";
 import { PALETTE } from "./palette";
+import type { CropId } from "@/lib/data/crops";
 
 const mat = { roughness: 0.88, metalness: 0.02 } as const;
 
@@ -254,6 +255,61 @@ export function WheatStalk({ stage }: { stage: "planted" | "sprout" | "growing" 
       ) : null}
     </group>
   );
+}
+
+function RootPlant({ stage }: { stage: "planted" | "sprout" | "growing" | "ready" }) {
+  const h = stage === "planted" ? 0.1 : stage === "sprout" ? 0.18 : stage === "growing" ? 0.28 : 0.38;
+  const w = stage === "planted" ? 0.16 : stage === "sprout" ? 0.22 : stage === "growing" ? 0.32 : 0.42;
+  const color = stage === "ready" ? PALETTE.rootReady : stage === "planted" ? "#5a3a28" : PALETTE.root;
+  return (
+    <group>
+      <mesh position={[0, h / 2, 0]} castShadow>
+        <sphereGeometry args={[w / 2, 6, 5]} />
+        <meshStandardMaterial color={color} {...mat} />
+      </mesh>
+      {stage === "ready" || stage === "growing" ? (
+        <mesh position={[0, h + 0.08, 0]} castShadow>
+          <boxGeometry args={[0.06, 0.16, 0.06]} />
+          <meshStandardMaterial color="#6d7a4e" {...mat} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+function HerbPlant({ stage }: { stage: "planted" | "sprout" | "growing" | "ready" }) {
+  const h = stage === "planted" ? 0.12 : stage === "sprout" ? 0.24 : stage === "growing" ? 0.4 : 0.55;
+  const color = stage === "ready" ? PALETTE.herbReady : stage === "planted" ? "#3d5a32" : PALETTE.herb;
+  return (
+    <group>
+      <mesh position={[-0.1, h / 2, 0]} rotation={[0, 0, 0.35]} castShadow>
+        <boxGeometry args={[0.08, h, 0.18]} />
+        <meshStandardMaterial color={color} {...mat} />
+      </mesh>
+      <mesh position={[0.12, h / 2 + 0.04, 0.04]} rotation={[0, 0, -0.4]} castShadow>
+        <boxGeometry args={[0.08, h * 0.85, 0.16]} />
+        <meshStandardMaterial color={color} {...mat} />
+      </mesh>
+      {stage === "ready" ? (
+        <mesh position={[0, h + 0.06, 0]} castShadow>
+          <boxGeometry args={[0.12, 0.1, 0.12]} />
+          <meshStandardMaterial color="#e8d9b0" {...mat} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+export function CropPlant({
+  crop,
+  stage,
+}: {
+  crop: CropId;
+  stage: "planted" | "sprout" | "growing" | "ready";
+}) {
+  if (crop === "root") return <RootPlant stage={stage} />;
+  if (crop === "herb") return <HerbPlant stage={stage} />;
+  return <WheatStalk stage={stage} />;
 }
 
 export function PeltDrop({ position, dire = false }: { position: [number, number, number]; dire?: boolean }) {

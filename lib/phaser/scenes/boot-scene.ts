@@ -34,6 +34,35 @@ function crop(scene: Phaser.Scene, key: string, fill: number, h: number) {
   g.destroy();
 }
 
+function cropRoot(scene: Phaser.Scene, key: string, fill: number, size: number) {
+  const g = gfx(scene);
+  g.fillStyle(0x6b5344, 1);
+  g.fillRect(8, TILE - 8, 16, 6);
+  g.fillStyle(fill, 1);
+  g.fillEllipse(TILE / 2, TILE - 8 - size / 2, size + 4, size);
+  if (size > 10) {
+    g.fillStyle(0x6d7a4e, 1);
+    g.fillRect(TILE / 2 - 2, TILE - 8 - size - 4, 4, 6);
+  }
+  g.generateTexture(key, TILE, TILE);
+  g.destroy();
+}
+
+function cropHerb(scene: Phaser.Scene, key: string, fill: number, h: number) {
+  const g = gfx(scene);
+  g.fillStyle(0x6b5344, 1);
+  g.fillRect(10, TILE - 8, 12, 6);
+  g.fillStyle(fill, 1);
+  g.fillTriangle(10, TILE - 6, 6, TILE - 6 - h, 14, TILE - 8);
+  g.fillTriangle(22, TILE - 6, 18, TILE - 8, 28, TILE - 6 - h);
+  if (h > 14) {
+    g.fillStyle(0xe8d9b0, 1);
+    g.fillRect(14, TILE - 8 - h, 4, 4);
+  }
+  g.generateTexture(key, TILE, TILE);
+  g.destroy();
+}
+
 function person(scene: Phaser.Scene, key: string, body: number, head: number, extra?: (g: Phaser.GameObjects.Graphics) => void) {
   const g = gfx(scene);
   g.fillStyle(body, 1);
@@ -145,6 +174,16 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
   crop(scene, "crop-grain-sprout", C.grainSprout, 10);
   crop(scene, "crop-grain-grow", C.grainGrow, 16);
   crop(scene, "crop-grain-ready", C.grainReady, 22);
+
+  cropRoot(scene, "crop-root-planted", C.rootPlanted, 6);
+  cropRoot(scene, "crop-root-sprout", C.rootSprout, 8);
+  cropRoot(scene, "crop-root-grow", C.rootGrow, 12);
+  cropRoot(scene, "crop-root-ready", C.rootReady, 16);
+
+  cropHerb(scene, "crop-herb-planted", C.herbPlanted, 8);
+  cropHerb(scene, "crop-herb-sprout", C.herbSprout, 12);
+  cropHerb(scene, "crop-herb-grow", C.herbGrow, 16);
+  cropHerb(scene, "crop-herb-ready", C.herbReady, 20);
 
   person(scene, "sprite-pilgrim", C.pilgrim, C.pilgrimHead);
   person(scene, "sprite-bren", 0x6a3a28, 0xc4a07a, (g) => {

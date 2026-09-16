@@ -11,6 +11,13 @@ export type NpcDefinition = {
   rumor: string;
   emptyHands: string;
   shop: string;
+  bake: string;
+  demandBread: string;
+  demandGrain: string;
+  demandReadyBread: string;
+  demandReadyGrain: string;
+  demandThanksBread: string;
+  demandThanksGrain: string;
   buyItem: ItemId;
   buyPrice: number;
 };
@@ -19,12 +26,19 @@ export const BREN: NpcDefinition = {
   id: "bren",
   name: "Old Bren",
   title: "Baker",
-  greet: "Morning. Got anything from the garden?",
-  offer: "Wheat's what the oven wants. Two gold a sheaf — fair for a first harvest.",
+  greet: "Morning. Garden looking honest?",
+  offer: "Wheat's what the oven wants. Two gold a sheaf — fair for a first harvest. Roots three, herbs five if you've got the patience.",
   thanks: "That'll rise by dusk. Don't spend it all staring at the trees.",
   rumor: "Tracks on the north path aren't mine. Some say a dragon slept beyond the pines. Some say it's only weather that walks.",
   emptyHands: "Nothing green on you. The beds out front will wait.",
   shop: "Gold spends. A potion for the path, a blade if the trees answer back, a hide coat if they bite.",
+  bake: "Wheat in, bread out. That's the whole trick. Creation spends what it makes.",
+  demandBread: "I need three loaves by dusk. The shelf will notice if it's empty.",
+  demandGrain: "Bring me grain. Three sheaves and the oven stays honest.",
+  demandReadyBread: "Those loaves will do. Hand them here — I'll see you paid like a neighbor, not a stall.",
+  demandReadyGrain: "That's the grain. In with you, then gold.",
+  demandThanksBread: "Three loaves. The shelf is honest. Don't spend it all staring at the trees.",
+  demandThanksGrain: "Grain in the bin. The oven can work. Take this for the trouble.",
   buyItem: "wheat",
   buyPrice: 2,
 };

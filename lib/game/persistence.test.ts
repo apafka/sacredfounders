@@ -15,6 +15,8 @@ test("GamePersistence round-trips gold, inventory, skills, crops, and position",
   assert.equal(loaded.player.encounters.length, 4);
   assert.deepEqual(loaded.player.position, { x: 40, y: 80 });
   assert.equal(loaded.player.plots[0].crop, "grain");
+  assert.equal(loaded.player.brenDemand.kind, "bread");
+  assert.equal(loaded.player.livingBakery, true);
   const cookie = createPlayer("keep", "Ada", 1);
   const merged = mergeSession(cookie, loaded);
   assert.equal(merged.coins, 6);

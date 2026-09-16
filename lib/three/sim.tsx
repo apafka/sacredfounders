@@ -4,7 +4,9 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as THREE from "three";
 import { PLAYER_MAX_HP, RESPAWN_MS, mitigateDamage, playerStrikeDamage } from "@/lib/combat";
+import { CROPS } from "@/lib/data/crops";
 import { plotReady, plotStage } from "@/lib/crops";
+import { countItem } from "@/lib/game/inventory";
 import { enemyDefinition } from "@/lib/data/enemies";
 import { CROP_META, type Scene } from "@/lib/types";
 import type { WorldBridge } from "@/lib/phaser/bridge";
@@ -68,7 +70,7 @@ function nearestHearthJob(x: number, y: number): HearthJob | null {
     { kind: "fire", radius: TILE * 1.2 },
     { kind: "bed", radius: TILE * 1.35 },
     { kind: "chest", radius: TILE * 1.2 },
-    { kind: "workbench", radius: TILE * 1.2 },
+    { kind: "workbench", radius: TILE * 1.45 },
     { kind: "bren", radius: TILE * 1.8 },
     { kind: "door", radius: TILE * 1.1 },
   ];
@@ -170,7 +172,7 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     if (scene === "hearth") {
       bridge.emit({
         type: "hint",
-        text: "This is your hearth. WASD or click to walk. Garden and Old Bren are just outside. The path leaves east.",
+        text: "This is your hearth. Three beds, three seeds. WASD or click to walk. Oven inside. Old Bren waits on the path.",
       });
     } else {
       const living = foes.current.filter((foe) => foe.hp > 0).length;
@@ -226,12 +228,17 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       const plot = player.plots[next.plotId];
       if (!plot) return;
       if (!plot.crop) {
-        if (player.seeds.grain < 1) {
-          bridge.emit({ type: "hint", text: "No wheat seed left. Harvest what you planted, or walk the path." });
+        const seed = bridge.getSeed();
+        const def = CROPS[seed];
+        if (countItem(player.inventory, def.seedItem) < 1) {
+          bridge.emit({
+            type: "hint",
+            text: `No ${def.name.toLowerCase()} seed. Pick another crop (1–3), or harvest.`,
+          });
           return;
         }
         bridge.emit({ type: "plant", plotId: next.plotId });
-        puff(look.current.x, look.current.z, "Planted", "#c4a35a");
+        puff(look.current.x, look.current.z, `Planted ${def.name}`, "#c4a35a");
         return;
       }
       if (plot.plantedAt != null && plotReady(plot.plantedAt, plot.crop, player.skills.farming.xp, Date.now())) {
@@ -265,7 +272,12 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       return;
     }
     if (next.kind === "workbench") {
-      bridge.emit({ type: "hint", text: "A workbench waiting for craft. Not today." });
+      if (countItem(player.inventory, "wheat") < 1) {
+        bridge.emit({ type: "hint", text: "The oven wants a sheaf of wheat. Harvest the garden, then come back." });
+        return;
+      }
+      puff(look.current.x, look.current.z, "Baked", "#c4a35a");
+      bridge.emit({ type: "bake-bread" });
       return;
     }
     if (next.kind === "bren") {

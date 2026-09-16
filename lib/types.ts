@@ -2,13 +2,24 @@ import type { ItemId } from "./data/items";
 import type { EncounterKind } from "./data/enemies";
 import type { SkillId, SkillState } from "./game/skills";
 import type { InventorySlot } from "./game/inventory";
+import { CROP_IDS, CROP_META, GROW_MS, type CropId } from "./data/crops";
+import { BREN_PRICES } from "./data/economy";
 
-export const CROP_IDS = ["grain", "root", "herb"] as const;
-export type CropId = (typeof CROP_IDS)[number];
+export { CROP_IDS, CROP_META, GROW_MS, BREN_PRICES };
+export type { CropId };
+
 export const GOODS_IDS = ["grain", "root", "herb", "fish", "loaf"] as const;
 export type GoodsId = (typeof GOODS_IDS)[number];
 export type ClassId = "fighter" | "spiritual";
 export type Scene = "hearth" | "valley";
+
+export type BrenDemandKind = "bread" | "grain";
+
+export type BrenDemand = {
+  kind: BrenDemandKind;
+  qty: number;
+  fulfilledAt: number | null;
+};
 
 export type Plot = {
   id: number;
@@ -62,37 +73,18 @@ export type PlayerState = {
   wolf: WolfSave;
   encounters: EncounterSave[];
   wildernessWipedAt: number | null;
+  brenDemand: BrenDemand;
+  livingBakery: boolean;
   whisper: string;
   log: LogEntry[];
   walletAddress: string;
   enteredAt: number;
 };
 
-/** Baker pays 2 gold per wheat. Three sheaves → +6 Gold. */
-export const BREN_PRICES: Record<GoodsId, number> = {
-  grain: 2,
-  root: 2,
-  herb: 3,
-  fish: 3,
-  loaf: 4,
-};
-
-export const GROW_MS: Record<CropId, number> = {
-  grain: 45_000,
-  root: 50_000,
-  herb: 40_000,
-};
-
-export const CROP_META: Record<CropId, { name: string; mark: string }> = {
-  grain: { name: "Wheat", mark: "W" },
-  root: { name: "Root", mark: "R" },
-  herb: { name: "Herb", mark: "H" },
-};
-
 export const GOODS_META: Record<GoodsId, { name: string; mark: string }> = {
   ...CROP_META,
   fish: { name: "Fish", mark: "F" },
-  loaf: { name: "Loaf", mark: "L" },
+  loaf: { name: "Bread", mark: "L" },
 };
 
 export type { ItemId, InventorySlot, SkillId, SkillState, EncounterKind };

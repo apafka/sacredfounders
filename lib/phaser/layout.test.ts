@@ -19,6 +19,7 @@ import {
   VIEW_HEIGHT,
   VIEW_ROWS,
   VIEW_WIDTH,
+  cropTexture,
   expandTileMap,
   inBounds,
   isDoorTile,
@@ -132,4 +133,11 @@ test("tileset indices include forest after the original six", () => {
   assert.equal(TILE_CHARS.T, TILE_INDEX.forest);
   const data = tilesToData(["#=D"]);
   assert.deepEqual(data, [[TILE_INDEX.wall, TILE_INDEX.path, TILE_INDEX.door]]);
+});
+
+test("crop textures differ by crop and stage", () => {
+  assert.equal(cropTexture("grain", "ready"), "crop-grain-ready");
+  assert.equal(cropTexture("root", "sprout"), "crop-root-sprout");
+  assert.equal(cropTexture("herb", "growing"), "crop-herb-grow");
+  assert.notEqual(cropTexture("grain", "ready"), cropTexture("root", "ready"));
 });

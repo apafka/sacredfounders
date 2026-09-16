@@ -232,13 +232,15 @@ export function inBounds(col: number, row: number, cols: number = COLS, rows: nu
 }
 
 export function cropTexture(crop: CropId, stage: CropStage | boolean): string {
-  if (typeof stage === "boolean") return `crop-${crop}-${stage ? "ready" : "grow"}`;
-  if (stage === "empty") return "crop-grain-planted";
-  if (crop !== "grain") {
-    return stage === "ready" ? "crop-grain-ready" : "crop-grain-grow";
-  }
-  if (stage === "ready") return "crop-grain-ready";
-  if (stage === "growing") return "crop-grain-grow";
-  if (stage === "sprout") return "crop-grain-sprout";
-  return "crop-grain-planted";
+  const resolved =
+    typeof stage === "boolean"
+      ? stage
+        ? "ready"
+        : "grow"
+      : stage === "empty"
+        ? "planted"
+        : stage === "growing"
+          ? "grow"
+          : stage;
+  return `crop-${crop}-${resolved}`;
 }

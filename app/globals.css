@@ -218,6 +218,12 @@ h2 {
   gap: 0.3rem;
 }
 
+.seed-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
 .hud-health,
 .hud-gold {
   display: flex;
