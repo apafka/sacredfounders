@@ -204,10 +204,7 @@ export function WorldStage({
           <button className="hud-backdrop" type="button" aria-label="Close conversation" onClick={() => onToggleDialogue(false)} />
           <DialoguePanel
             player={player}
-            onSell={() => {
-              onSell();
-              onToggleDialogue(false);
-            }}
+            onSell={onSell}
             onBuy={onBuy}
             onClose={() => onToggleDialogue(false)}
           />

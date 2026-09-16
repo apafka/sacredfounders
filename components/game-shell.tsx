@@ -168,10 +168,7 @@ export function GameShell() {
         onToast={setToast}
         onPlant={(plotId) => applyLocal(plant(current(), plotId, "grain"))}
         onHarvest={(plotId) => applyLocal(harvest(current(), plotId))}
-        onSell={() => {
-          applyLocal(sellWheat(current()));
-          setDialogueOpen(false);
-        }}
+        onSell={() => applyLocal(sellWheat(current()))}
         onBuy={(sku) => applyLocal(buyFromBren(current(), sku))}
         onRest={() => applyLocal(restAtBed(current()))}
         onUsePotion={() => applyLocal(usePotion(current()))}
