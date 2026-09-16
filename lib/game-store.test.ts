@@ -65,12 +65,51 @@ test("plant grow harvest sell three wheat for +6 gold and farming XP", () => {
     player = ripe.player;
   }
   assert.equal(countItem(player.inventory, "wheat"), 3);
+  assert.equal(countItem(player.inventory, "wheat_seed"), 3);
   assert.ok(player.skills.farming.xp >= 18 * 3);
   const sold = sellWheat(player, 0, 20);
   assert.equal(sold.ok, true);
   assert.equal(sold.player.coins, 6);
   assert.equal(sold.message, "+6 Gold");
   assert.equal(countItem(sold.player.inventory, "wheat"), 0);
+});
+
+test("a second garden round pays for the blade; a third covers armor", () => {
+  let player = createPlayer("p2b", "Alan", 1);
+  function farmRound(now: number) {
+    for (let id = 0; id < 3; id += 1) {
+      const planted = plant(player, id, "grain", now);
+      assert.equal(planted.ok, true);
+      player = planted.player;
+    }
+    for (let id = 0; id < 3; id += 1) {
+      const ripe = harvest(player, id, now + GROW_MS.grain);
+      assert.equal(ripe.ok, true);
+      player = ripe.player;
+    }
+    const sold = sellWheat(player, 0, now + GROW_MS.grain + 1);
+    assert.equal(sold.ok, true);
+    player = sold.player;
+  }
+  farmRound(10);
+  assert.equal(player.coins, 6);
+  const potion = buyFromBren(player, "potion", 20);
+  assert.equal(potion.ok, true);
+  player = potion.player;
+  farmRound(30);
+  assert.equal(player.coins, 7);
+  farmRound(50);
+  const blade = buyFromBren(player, "sword", 70);
+  assert.equal(blade.ok, true);
+  assert.equal(blade.player.hasSword, true);
+  player = blade.player;
+  farmRound(80);
+  farmRound(100);
+  farmRound(120);
+  const coat = buyFromBren(player, "armor", 140);
+  assert.equal(coat.ok, true);
+  assert.equal(coat.player.hasArmor, true);
+  assert.equal(countItem(coat.player.inventory, "health_potion"), 1);
 });
 
 test("wolf leaves a pelt; pickup grants combat XP not gold", () => {

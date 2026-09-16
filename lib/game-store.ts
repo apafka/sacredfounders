@@ -165,8 +165,10 @@ export function harvest(player: PlayerState, plotId: number, now = Date.now()): 
   }
 
   const amount = CROPS.grain.harvestAmount;
-  const nextInv = addItem(player.inventory, "wheat", amount);
+  let nextInv = addItem(player.inventory, "wheat", amount);
   if (!nextInv) return { player, ok: false, message: "Inventory is full." };
+  const seedBack = addItem(nextInv, CROPS.grain.seedItem, CROPS.grain.seedReturn);
+  if (seedBack) nextInv = seedBack;
   const gained = grantXp(player.skills, "farming", CROPS.grain.xp);
   const next = withMirrors(
     log(
