@@ -3,9 +3,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthControls } from "./auth-controls";
 import { WorldStage } from "./world-stage";
-import { harvest, pickupLoot, plant, restAtBed, sellWheat, setHealth, setPosition, setScene, buyFromBren, usePotion, enemyFalls, wolfFalls, maybeTimerRespawn } from "@/lib/game-store";
+import {
+  bakeBread,
+  eatBread,
+  fulfillBrenDemand,
+  harvest,
+  pickupLoot,
+  plant,
+  refreshBrenDemand,
+  restAtBed,
+  sellToBren,
+  sellWheat,
+  setHealth,
+  setPosition,
+  setScene,
+  buyFromBren,
+  usePotion,
+  enemyFalls,
+  wolfFalls,
+  maybeTimerRespawn,
+} from "@/lib/game-store";
 import { createLocalStoragePersistence, mergeSession, toSnapshot } from "@/lib/game/persistence";
-import type { PlayerState } from "@/lib/types";
+import type { CropId, GoodsId, PlayerState } from "@/lib/types";
 
 type View = { player: PlayerState | null; message?: string };
 
@@ -31,6 +50,7 @@ export function GameShell() {
   const [loaded, setLoaded] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [dialogueOpen, setDialogueOpen] = useState(false);
+  const [seed, setSeed] = useState<CropId>("grain");
 
   const commit = useCallback((next: PlayerState, note?: string, cookie = true) => {
     playerRef.current = next;
@@ -87,6 +107,21 @@ export function GameShell() {
         commit(next.player, next.message);
         setToast(next.message);
       }
+      if (event.key === "b" || event.key === "B") {
+        event.preventDefault();
+        const cur = playerRef.current;
+        if (!cur) return;
+        const next = eatBread(cur);
+        if (!next.ok) {
+          setHint(next.message);
+          return;
+        }
+        commit(next.player, next.message);
+        setToast(next.message);
+      }
+      if (event.key === "1") setSeed("grain");
+      if (event.key === "2") setSeed("root");
+      if (event.key === "3") setSeed("herb");
       if (event.key === "Escape") {
         setInventoryOpen(false);
         setDialogueOpen(false);
@@ -123,7 +158,10 @@ export function GameShell() {
       next.message.includes("Planted") ||
       next.message.includes("rested") ||
       next.message.includes("Blade") ||
-      next.message.includes("Armor")
+      next.message.includes("Armor") ||
+      next.message.includes("Baked") ||
+      next.message.includes("bread") ||
+      next.message.includes("fed")
     ) {
       setToast(next.message);
     }
@@ -131,6 +169,21 @@ export function GameShell() {
 
   function current(): PlayerState {
     return playerRef.current!;
+  }
+
+  function sell(good?: GoodsId) {
+    if (!good || good === "grain") {
+      applyLocal(sellWheat(current()));
+      return;
+    }
+    applyLocal(sellToBren(current(), good));
+  }
+
+  function openBren() {
+    const refreshed = refreshBrenDemand(current());
+    commit(refreshed.player);
+    setInventoryOpen(false);
+    setDialogueOpen(true);
   }
 
   if (!loaded) {
@@ -159,6 +212,7 @@ export function GameShell() {
     <div className="game-app">
       <WorldStage
         player={player}
+        seed={seed}
         busy={busy}
         inventoryOpen={inventoryOpen}
         dialogueOpen={dialogueOpen}
@@ -166,15 +220,26 @@ export function GameShell() {
         hint={hint}
         onHint={setHint}
         onToast={setToast}
-        onPlant={(plotId) => applyLocal(plant(current(), plotId, "grain"))}
+        onSeed={setSeed}
+        onPlant={(plotId) => applyLocal(plant(current(), plotId, seed))}
         onHarvest={(plotId) => applyLocal(harvest(current(), plotId))}
-        onSell={() => applyLocal(sellWheat(current()))}
+        onSell={sell}
         onBuy={(sku) => applyLocal(buyFromBren(current(), sku))}
+        onBake={() => applyLocal(bakeBread(current()))}
+        onFulfill={() => applyLocal(fulfillBrenDemand(current()))}
         onRest={() => applyLocal(restAtBed(current()))}
         onUsePotion={() => applyLocal(usePotion(current()))}
+        onEatBread={() => applyLocal(eatBread(current()))}
         onDoor={(scene) => applyLocal(setScene(current(), scene))}
         onWolfDown={(id) => applyLocal(id ? enemyFalls(current(), id) : wolfFalls(current()))}
-        onPickupPelt={(id) => applyLocal(pickupLoot(current(), id ?? current().encounters.find((item) => item.lootDropped && !item.lootTaken)?.id ?? "wolf-near"))}
+        onPickupPelt={(id) =>
+          applyLocal(
+            pickupLoot(
+              current(),
+              id ?? current().encounters.find((item) => item.lootDropped && !item.lootTaken)?.id ?? "wolf-near",
+            ),
+          )
+        }
         onRespawn={() => applyLocal(maybeTimerRespawn(current()))}
         onHealth={(health) => {
           const cur = current();
@@ -188,7 +253,11 @@ export function GameShell() {
           commit(setPosition(cur, x, y), undefined, false);
         }}
         onToggleInventory={(open) => setInventoryOpen((prev) => (open == null ? !prev : open))}
-        onToggleDialogue={(open) => setDialogueOpen((prev) => (open == null ? !prev : open))}
+        onToggleDialogue={(open) => {
+          const next = open == null ? !dialogueOpen : open;
+          if (next) openBren();
+          else setDialogueOpen(false);
+        }}
       />
     </div>
   );

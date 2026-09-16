@@ -43,8 +43,8 @@ Viewport is **896×576** (28×18 tiles at TILE 32) — about **1.8×** the old 6
 | Items / crops / enemies / NPCs | `lib/data/*` + `lib/types.ts` | Definitions, not scene code. |
 | Inventory | `lib/game/inventory.ts` | 20 slots, stacking. |
 | Skills | `lib/game/skills.ts` | Farming + Combat; add more later. |
-| Economy | sell wheat → gold | Baker is a sink, not an infinite shop. |
-| NPC brain | `lib/game/npc.ts` | `DeterministicBrain` now; `AgentBrain` later. No LLM. |
+| Economy | wheat/root/herb → gold; wheat → bread (sink); Bren demand | Baker is a person with needs, not an infinite shop. |
+| NPC brain | `lib/game/npc.ts` | `DeterministicBrain` demand + buy; `AgentBrain` later. No LLM. |
 | Combat | `lib/phaser/wolf-ai.ts` + `lib/combat.ts` | Click → approach → auto-attack. Shared by both renderers. |
 | Persistence | `lib/game/persistence.ts` | `GamePersistence.save/load`. |
 
@@ -63,10 +63,11 @@ GameSnapshot     { version, playerId, savedAt, player }
 
 V1 content:
 
-- 3 plots, 3 wheat seeds, wheat grows in **45s** (planted → sprout → growing → ready).
-- Old Bren buys wheat at **2 gold** (three crops → **+6 Gold**).
-- One wolf: **12 HP**, player hit **3**, click-to-fight, **Wolf Pelt** drop.
-- Skills: harvest → Farming XP; pickup pelt → Combat XP.
+- 3 plots, 1 seed of each crop (wheat / root / herb). Growth **45s / 50s / 40s**. Seed returns on harvest.
+- Oven: **1 wheat → 1 bread**. Eat bread for **+6 HP**. Potion **+10**. Bed full rest.
+- Old Bren buys wheat **2**, root **3**, herb **5**, bread **4**. Demand: 3 loaves → **+18 gold** + Farming XP, then 3 grain → **+10 gold**.
+- One wolf pack + a dire wolf: click-to-fight, **Wolf Pelt** / **Dire Hide**.
+- Skills: harvest → Farming XP; pickup pelt → Combat XP; fulfill Bren → Farming XP.
 
 ## State machine
 
@@ -80,7 +81,8 @@ boot → pilgrim gate (cookie identity)
 
 crop:  empty → planted → sprout → growing → ready → empty
 wolf:  idle → wander → chase → attack → dead → pelt on ground
-bren:  greet | offer-buy (DeterministicBrain)
+bren:  greet | demand (loaves/grain) | offer-buy | shop (DeterministicBrain)
+oven:  1 wheat → 1 bread
 ```
 
 Pilgrim cookie `sf_pilgrim` still identifies the session. `GamePersistence` (localStorage) is the gameplay source of truth for position, gold, inventory, skills, and crops. Cookie writes remain a backup and must not be required mid-combat.
@@ -97,4 +99,4 @@ Pilgrim cookie `sf_pilgrim` still identifies the session. `GamePersistence` (loc
 8. Polish (warm light, forest presence, toasts)
 9. Zoom out the viewport; isometric Three.js door on the same loop
 
-Out of slice: chain, wallet, marketplace, multiplayer, LLM, second continent, fishing/cooking as features, class pick, pack wolves.
+Out of slice: chain, wallet, marketplace, multiplayer, LLM, second continent, fishing as a feature, class pick, raids.

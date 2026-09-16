@@ -12,10 +12,21 @@ import {
 } from "./combat";
 import { CROPS } from "./data/crops";
 import { enemyDefinition } from "./data/enemies";
+import {
+  BAKE_WHEAT_COST,
+  BREAD_HEAL,
+  BREN_BREAD_REWARD_GOLD,
+  BREN_BREAD_REWARD_XP,
+  BREN_DEMAND_QTY,
+  BREN_GRAIN_REWARD_GOLD,
+  BREN_GRAIN_REWARD_XP,
+  BREN_PRICES,
+} from "./data/economy";
 import { BREN, type ShopSku } from "./data/npcs";
 import type { ItemId } from "./data/items";
 import { plotReady } from "./crops";
 import { addItem, countItem, emptyInventory, removeItem } from "./game/inventory";
+import { demandItem } from "./game/npc";
 import { emptySkills, grantXp } from "./game/skills";
 import {
   allEncountersDown,
@@ -24,8 +35,8 @@ import {
   mirrorWolf,
   shouldTimerRespawn,
 } from "./game/wilderness";
-import type { ClassId, CropId, EncounterSave, GoodsId, PlayerState } from "./types";
-import { BREN_PRICES, GOODS_IDS } from "./types";
+import type { BrenDemand, ClassId, CropId, EncounterSave, GoodsId, PlayerState } from "./types";
+import { GOODS_IDS } from "./types";
 
 export type Result = { player: PlayerState; ok: boolean; message: string };
 
@@ -36,6 +47,13 @@ const emptyBasket = (): Record<GoodsId, number> => ({
   fish: 0,
   loaf: 0,
 });
+
+const GOOD_ITEM: Record<Exclude<GoodsId, "fish">, ItemId> = {
+  grain: "wheat",
+  root: "root",
+  herb: "herb",
+  loaf: "bread",
+};
 
 export function sessionWallet(playerId: string): string {
   const hex = Array.from(playerId.replace(/-/g, ""))
@@ -52,12 +70,15 @@ function log(player: PlayerState, text: string, now: number): PlayerState {
 function withMirrors(player: PlayerState): PlayerState {
   const seeds = {
     grain: countItem(player.inventory, "wheat_seed"),
-    root: player.seeds.root,
-    herb: player.seeds.herb,
+    root: countItem(player.inventory, "root_seed"),
+    herb: countItem(player.inventory, "herb_seed"),
   };
   const basket = {
     ...player.basket,
     grain: countItem(player.inventory, "wheat"),
+    root: countItem(player.inventory, "root"),
+    herb: countItem(player.inventory, "herb"),
+    loaf: countItem(player.inventory, "bread"),
   };
   return {
     ...player,
@@ -69,8 +90,26 @@ function withMirrors(player: PlayerState): PlayerState {
   };
 }
 
+function starterInventory(): PlayerState["inventory"] {
+  let inventory = emptyInventory();
+  inventory = addItem(inventory, "wheat_seed", 1) ?? inventory;
+  inventory = addItem(inventory, "root_seed", 1) ?? inventory;
+  inventory = addItem(inventory, "herb_seed", 1) ?? inventory;
+  return inventory;
+}
+
+export function openingBrenDemand(): BrenDemand {
+  return { kind: "bread", qty: BREN_DEMAND_QTY, fulfilledAt: null };
+}
+
+export function nextBrenDemand(prev: BrenDemand | null | undefined): BrenDemand {
+  if (!prev) return openingBrenDemand();
+  const kind = prev.kind === "bread" ? "grain" : "bread";
+  return { kind, qty: BREN_DEMAND_QTY, fulfilledAt: null };
+}
+
 export function createPlayer(id: string, name: string, now = Date.now()): PlayerState {
-  const inventory = addItem(emptyInventory(), "wheat_seed", 3) ?? [];
+  const inventory = starterInventory();
   return withMirrors({
     id,
     name: name.trim().slice(0, 24) || "Pilgrim",
@@ -90,7 +129,7 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     hasArmor: false,
     strikeDamage: PLAYER_DAMAGE,
     lastFishAt: 0,
-    seeds: { grain: 3, root: 0, herb: 0 },
+    seeds: { grain: 1, root: 1, herb: 1 },
     basket: emptyBasket(),
     inventory,
     skills: emptySkills(),
@@ -99,6 +138,8 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     encounters: freshEncounters(),
     wolf: mirrorWolf(freshEncounters()),
     wildernessWipedAt: null,
+    brenDemand: openingBrenDemand(),
+    livingBakery: true,
     whisper: "The fire kept. The garden is yours. The door waits whenever you do.",
     log: [{ at: now, text: "You wake at the hearth. This is home." }],
     walletAddress: sessionWallet(id),
@@ -122,23 +163,15 @@ export function chooseClass(player: PlayerState, classId: ClassId, now = Date.no
 export function plant(player: PlayerState, plotId: number, crop: CropId, now = Date.now()): Result {
   const plot = player.plots[plotId];
   if (!plot || plot.crop) return { player, ok: false, message: "That bed is not free." };
-  if (crop !== "grain") {
-    if (player.seeds[crop] < 1) return { player, ok: false, message: `No ${crop} seed.` };
-    const plots = player.plots.map((p) => (p.id === plotId ? { ...p, crop, plantedAt: now } : p));
-    const seeds = { ...player.seeds, [crop]: player.seeds[crop] - 1 };
-    return {
-      player: log({ ...player, plots, seeds }, `Planted ${crop} in bed ${plotId + 1}.`, now),
-      ok: true,
-      message: `Planted ${crop}.`,
-    };
-  }
-  const nextInv = removeItem(player.inventory, "wheat_seed", 1);
-  if (!nextInv) return { player, ok: false, message: "No wheat seed." };
+  const def = CROPS[crop];
+  if (!def) return { player, ok: false, message: "Unknown crop." };
+  const nextInv = removeItem(player.inventory, def.seedItem, 1);
+  if (!nextInv) return { player, ok: false, message: `No ${def.name.toLowerCase()} seed.` };
   const plots = player.plots.map((p) => (p.id === plotId ? { ...p, crop, plantedAt: now } : p));
   const next = withMirrors(
-    log({ ...player, plots, inventory: nextInv }, `You press a seed into the soil.`, now),
+    log({ ...player, plots, inventory: nextInv }, `You press a ${def.name.toLowerCase()} seed into the soil.`, now),
   );
-  return { player: next, ok: true, message: "Planted wheat." };
+  return { player: next, ok: true, message: `Planted ${def.name}.` };
 }
 
 export function harvest(player: PlayerState, plotId: number, now = Date.now()): Result {
@@ -147,29 +180,13 @@ export function harvest(player: PlayerState, plotId: number, now = Date.now()): 
   if (!plotReady(plot.plantedAt, plot.crop, player.skills.farming.xp, now)) {
     return { player, ok: false, message: "Still growing." };
   }
-  const crop = plot.crop;
+  const def = CROPS[plot.crop];
   const plots = player.plots.map((p) => (p.id === plotId ? { ...p, crop: null, plantedAt: null } : p));
-
-  if (crop !== "grain") {
-    const basket = { ...player.basket, [crop]: player.basket[crop] + 1 };
-    const farmSkill = player.farmSkill + 1;
-    return {
-      player: log(
-        { ...player, plots, basket, farmSkill, harvests: player.harvests + 1 },
-        `Harvested ${crop}.`,
-        now,
-      ),
-      ok: true,
-      message: `Harvested ${crop}.`,
-    };
-  }
-
-  const amount = CROPS.grain.harvestAmount;
-  let nextInv = addItem(player.inventory, "wheat", amount);
+  let nextInv = addItem(player.inventory, def.harvestItem, def.harvestAmount);
   if (!nextInv) return { player, ok: false, message: "Inventory is full." };
-  const seedBack = addItem(nextInv, CROPS.grain.seedItem, CROPS.grain.seedReturn);
+  const seedBack = addItem(nextInv, def.seedItem, def.seedReturn);
   if (seedBack) nextInv = seedBack;
-  const gained = grantXp(player.skills, "farming", CROPS.grain.xp);
+  const gained = grantXp(player.skills, "farming", def.xp);
   const next = withMirrors(
     log(
       {
@@ -179,7 +196,7 @@ export function harvest(player: PlayerState, plotId: number, now = Date.now()): 
         skills: gained.skills,
         harvests: player.harvests + 1,
       },
-      `Wheat in hand. +${CROPS.grain.xp} Farming XP${gained.leveled ? `. Farming ${gained.skills.farming.level}.` : "."}`,
+      `${def.name} in hand. +${def.xp} Farming XP${gained.leveled ? `. Farming ${gained.skills.farming.level}.` : "."}`,
       now,
     ),
   );
@@ -187,24 +204,39 @@ export function harvest(player: PlayerState, plotId: number, now = Date.now()): 
     player: next,
     ok: true,
     message: gained.leveled
-      ? `Harvested wheat. Farming ${gained.skills.farming.level}.`
-      : "Harvested wheat.",
+      ? `Harvested ${def.name}. Farming ${gained.skills.farming.level}.`
+      : `Harvested ${def.name}.`,
   };
 }
 
 export function sellToBren(player: PlayerState, good: GoodsId, now = Date.now()): Result {
-  if (good === "grain") {
-    return sellWheat(player, 1, now);
+  if (good === "grain") return sellWheat(player, 0, now);
+  if (good === "fish") {
+    if (player.basket.fish < 1) return { player, ok: false, message: "No fish in the basket." };
+    const price = BREN_PRICES.fish;
+    const basket = { ...player.basket, fish: player.basket.fish - 1 };
+    const coins = player.coins + price;
+    return {
+      player: withMirrors(log({ ...player, basket, coins }, `Sold fish to Old Bren for ${price} gold.`, now)),
+      ok: true,
+      message: `+${price} Gold`,
+    };
   }
-  if (player.basket[good] < 1) return { player, ok: false, message: `No ${good} in the basket.` };
+  const item = GOOD_ITEM[good];
+  const have = countItem(player.inventory, item);
+  if (have < 1) return { player, ok: false, message: `No ${item} to sell.` };
+  const nextInv = removeItem(player.inventory, item, have);
+  if (!nextInv) return { player, ok: false, message: `No ${item} to sell.` };
   const price = BREN_PRICES[good];
-  const basket = { ...player.basket, [good]: player.basket[good] - 1 };
-  const coins = player.coins + price;
-  return {
-    player: log({ ...player, basket, coins }, `Sold ${good} to Old Bren for ${price} gold.`, now),
-    ok: true,
-    message: `+${price} Gold`,
-  };
+  const gold = have * price;
+  const next = withMirrors(
+    log(
+      { ...player, inventory: nextInv, coins: player.coins + gold, whisper: BREN.thanks },
+      `Old Bren takes ${have} ${item}. +${gold} Gold.`,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: `+${gold} Gold` };
 }
 
 export function sellWheat(player: PlayerState, qty = 0, now = Date.now()): Result {
@@ -249,25 +281,93 @@ export function fishCreek(player: PlayerState, rng = Math.random, now = Date.now
   };
 }
 
-export function cookLoaf(player: PlayerState, now = Date.now()): Result {
-  if (player.scene !== "hearth") return { player, ok: false, message: "The kitchen is at the hearth." };
-  const fromInv = countItem(player.inventory, "wheat");
-  if (fromInv < 1 && player.basket.grain < 1) return { player, ok: false, message: "Need wheat for a loaf." };
-  let inventory = player.inventory;
-  let basket = { ...player.basket };
-  if (fromInv >= 1) {
-    inventory = removeItem(inventory, "wheat", 1) ?? inventory;
-  } else {
-    basket = { ...basket, grain: basket.grain - 1 };
+/** 1 wheat → 1 bread. Grain is spent. */
+export function bakeBread(player: PlayerState, now = Date.now()): Result {
+  if (player.scene !== "hearth") return { player, ok: false, message: "The oven is at the hearth." };
+  if (countItem(player.inventory, "wheat") < BAKE_WHEAT_COST) {
+    return { player, ok: false, message: "Need wheat for bread." };
   }
-  basket = { ...basket, loaf: basket.loaf + 1 };
-  const cookSkill = player.cookSkill + 1;
-  return {
-    player: withMirrors(
-      log({ ...player, inventory, basket, cookSkill }, `You bake a loaf.`, now),
+  const spent = removeItem(player.inventory, "wheat", BAKE_WHEAT_COST);
+  if (!spent) return { player, ok: false, message: "Need wheat for bread." };
+  const nextInv = addItem(spent, "bread", 1);
+  if (!nextInv) return { player, ok: false, message: "Inventory is full." };
+  const next = withMirrors(
+    log(
+      { ...player, inventory: nextInv, cookSkill: player.cookSkill + 1, whisper: BREN.bake },
+      "Wheat in, bread out. The sheaf is gone.",
+      now,
     ),
+  );
+  return { player: next, ok: true, message: "Baked bread." };
+}
+
+/** @deprecated Use bakeBread. Kept for the old cook action. */
+export function cookLoaf(player: PlayerState, now = Date.now()): Result {
+  return bakeBread(player, now);
+}
+
+export function eatBread(player: PlayerState, now = Date.now()): Result {
+  if (player.health >= player.maxHealth) return { player, ok: false, message: "You are already whole." };
+  const nextInv = removeItem(player.inventory, "bread", 1);
+  if (!nextInv) return { player, ok: false, message: "No bread." };
+  const healed = Math.min(BREAD_HEAL, player.maxHealth - player.health);
+  const next = withMirrors(
+    log(
+      { ...player, inventory: nextInv, health: player.health + healed },
+      `The loaf is warm. +${healed} HP.`,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: `+${healed} HP · bread` };
+}
+
+export function refreshBrenDemand(player: PlayerState, now = Date.now()): Result {
+  const demand = player.brenDemand;
+  if (demand && demand.fulfilledAt == null) {
+    return { player, ok: true, message: "" };
+  }
+  const nextDemand = nextBrenDemand(demand);
+  const line = nextDemand.kind === "bread" ? BREN.demandBread : BREN.demandGrain;
+  return {
+    player: withMirrors(log({ ...player, brenDemand: nextDemand, whisper: line }, line, now)),
     ok: true,
-    message: "Baked a loaf.",
+    message: line,
+  };
+}
+
+export function fulfillBrenDemand(player: PlayerState, now = Date.now()): Result {
+  const current = player.brenDemand && player.brenDemand.fulfilledAt == null ? player.brenDemand : null;
+  if (!current) return { player, ok: false, message: "Bren is not asking for anything." };
+  const item = demandItem(current.kind);
+  const have = countItem(player.inventory, item);
+  if (have < current.qty) {
+    const line = current.kind === "bread" ? BREN.demandBread : BREN.demandGrain;
+    return { player: { ...player, whisper: line }, ok: false, message: line };
+  }
+  const nextInv = removeItem(player.inventory, item, current.qty);
+  if (!nextInv) return { player, ok: false, message: "Nothing to hand over." };
+  const gold = current.kind === "bread" ? BREN_BREAD_REWARD_GOLD : BREN_GRAIN_REWARD_GOLD;
+  const xp = current.kind === "bread" ? BREN_BREAD_REWARD_XP : BREN_GRAIN_REWARD_XP;
+  const gained = grantXp(player.skills, "farming", xp);
+  const thanks = current.kind === "bread" ? BREN.demandThanksBread : BREN.demandThanksGrain;
+  const next = withMirrors(
+    log(
+      {
+        ...player,
+        inventory: nextInv,
+        coins: player.coins + gold,
+        skills: gained.skills,
+        brenDemand: { ...current, fulfilledAt: now },
+        whisper: thanks,
+      },
+      `${thanks} +${gold} Gold. +${xp} Farming XP${gained.leveled ? `. Farming ${gained.skills.farming.level}.` : "."}`,
+      now,
+    ),
+  );
+  return {
+    player: next,
+    ok: true,
+    message: `+${gold} Gold · Bren is fed`,
   };
 }
 
@@ -486,14 +586,29 @@ export function basketTotal(player: PlayerState): number {
   return GOODS_IDS.reduce((sum, id) => sum + player.basket[id], 0);
 }
 
+function pushItem(inventory: PlayerState["inventory"], itemId: ItemId, qty: number) {
+  if (qty < 1) return inventory;
+  return addItem(inventory, itemId, qty) ?? inventory;
+}
+
 export function hydratePlayer(raw: PlayerState): PlayerState {
-  const inventory = raw.inventory?.length
+  let inventory = raw.inventory?.length
     ? raw.inventory
     : addItem(
         addItem(emptyInventory(), "wheat_seed", Math.max(0, raw.seeds?.grain ?? 0)) ?? [],
         "wheat",
         Math.max(0, raw.basket?.grain ?? 0),
       ) ?? [];
+  if (countItem(inventory, "root") === 0) inventory = pushItem(inventory, "root", raw.basket?.root ?? 0);
+  if (countItem(inventory, "herb") === 0) inventory = pushItem(inventory, "herb", raw.basket?.herb ?? 0);
+  if (countItem(inventory, "bread") === 0) inventory = pushItem(inventory, "bread", raw.basket?.loaf ?? 0);
+  if (countItem(inventory, "root_seed") === 0) inventory = pushItem(inventory, "root_seed", raw.seeds?.root ?? 0);
+  if (countItem(inventory, "herb_seed") === 0) inventory = pushItem(inventory, "herb_seed", raw.seeds?.herb ?? 0);
+  const livingBakery = Boolean(raw.livingBakery);
+  if (!livingBakery) {
+    if (countItem(inventory, "root_seed") === 0) inventory = pushItem(inventory, "root_seed", 1);
+    if (countItem(inventory, "herb_seed") === 0) inventory = pushItem(inventory, "herb_seed", 1);
+  }
   const plots =
     raw.plots?.length >= 3
       ? raw.plots.slice(0, 3).map((plot, id) => ({ id, crop: plot.crop, plantedAt: plot.plantedAt }))
@@ -502,6 +617,14 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
   const hasSword = Boolean(raw.hasSword) || countItem(inventory, "iron_blade") > 0;
   const hasArmor = Boolean(raw.hasArmor) || countItem(inventory, "hide_armor") > 0;
   const encounters = ensureEncounters(raw.encounters, raw.wolf);
+  const brenDemand =
+    raw.brenDemand && (raw.brenDemand.kind === "bread" || raw.brenDemand.kind === "grain")
+      ? {
+          kind: raw.brenDemand.kind,
+          qty: raw.brenDemand.qty || BREN_DEMAND_QTY,
+          fulfilledAt: raw.brenDemand.fulfilledAt ?? null,
+        }
+      : openingBrenDemand();
   return withMirrors({
     ...raw,
     health: raw.health ?? PLAYER_MAX_HP,
@@ -519,6 +642,8 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
     encounters,
     wolf: mirrorWolf(encounters),
     wildernessWipedAt: raw.wildernessWipedAt ?? null,
+    brenDemand,
+    livingBakery: true,
     seeds: {
       grain: raw.seeds?.grain ?? 0,
       root: raw.seeds?.root ?? 0,

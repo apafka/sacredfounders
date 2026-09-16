@@ -82,11 +82,11 @@ export function HearthView({
           Creek · fish
         </button>
         <button className="btn-quiet" type="button" disabled={busy || player.basket.grain < 1} onClick={onCook}>
-          Kitchen · loaf (1 grain)
+          Oven · bread (1 wheat)
         </button>
       </div>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        Fishing and cooking are stubs: same basket, same Old Bren coins. Minigames later.
+        Fishing is a stub. The oven turns wheat into bread. Bread is eaten, not a bed rest.
       </p>
     </section>
   );

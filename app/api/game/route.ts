@@ -2,19 +2,22 @@ import { NextResponse } from "next/server";
 import { chainStatus } from "@/lib/chain";
 import { isCropId, isGoodsId } from "@/lib/crops";
 import {
+  bakeBread,
   buyFromBren,
   buySword,
   chooseClass,
-  cookLoaf,
   createPlayer,
+  eatBread,
   enemyFalls,
   fishCreek,
+  fulfillBrenDemand,
   harvest,
   hydratePlayer,
   maybeTimerRespawn,
   pickupLoot,
   pickupPelt,
   plant,
+  refreshBrenDemand,
   restAtBed,
   sellToBren,
   sellWheat,
@@ -97,7 +100,17 @@ export async function POST(request: Request) {
       result = fishCreek(player);
       break;
     case "cook":
-      result = cookLoaf(player);
+    case "bake-bread":
+      result = bakeBread(player);
+      break;
+    case "eat-bread":
+      result = eatBread(player);
+      break;
+    case "fulfill-demand":
+      result = fulfillBrenDemand(player);
+      break;
+    case "talk-bren":
+      result = refreshBrenDemand(player);
       break;
     case "sell":
       if (body.all === true || String(body.crop ?? body.good ?? "grain") === "grain") {

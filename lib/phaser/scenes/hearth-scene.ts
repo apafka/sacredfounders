@@ -1,5 +1,7 @@
 import * as Phaser from "phaser";
 import { plotStage } from "@/lib/crops";
+import { CROPS } from "@/lib/data/crops";
+import { countItem } from "@/lib/game/inventory";
 import { CROP_META } from "@/lib/types";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
 import { bindClickToMove, bindWalkKeys, burst, createGround, floatText, followActor, label, readAxis } from "../draw-map";
@@ -78,7 +80,7 @@ export class HearthScene extends Phaser.Scene {
 
     const bench = worldCenter(HEARTH_SPOTS.workbench.col, HEARTH_SPOTS.workbench.row);
     this.add.image(bench.x, bench.y, "sprite-bench").setDepth(3);
-    label(this, bench.x, bench.y - 14, "Workbench");
+    label(this, bench.x, bench.y - 14, "Oven");
 
     const brenPos = worldCenter(HEARTH_SPOTS.bren.col, HEARTH_SPOTS.bren.row);
     this.add.image(brenPos.x, brenPos.y, "sprite-bren").setDepth(8);
@@ -99,7 +101,7 @@ export class HearthScene extends Phaser.Scene {
 
     this.bridge().emit({
       type: "hint",
-      text: "This is your hearth. WASD or click to walk. Garden and Old Bren are just outside. The path leaves east.",
+      text: "This is your hearth. Three beds, three seeds. WASD or click to walk. Oven inside. Old Bren waits on the path.",
     });
 
     this.input.setDefaultCursor("pointer");
@@ -205,8 +207,13 @@ export class HearthScene extends Phaser.Scene {
       const plot = player.plots[job.plotId];
       if (!plot) return;
       if (!plot.crop) {
-        if (player.seeds.grain < 1) {
-          bridge.emit({ type: "hint", text: "No wheat seed left. Harvest what you planted, or walk the path." });
+        const seed = bridge.getSeed();
+        const def = CROPS[seed];
+        if (countItem(player.inventory, def.seedItem) < 1) {
+          bridge.emit({
+            type: "hint",
+            text: `No ${def.name.toLowerCase()} seed. Pick another crop (1–3), or harvest.`,
+          });
           return;
         }
         burst(this, this.pilgrim.x, this.pilgrim.y, 0x6b5344);
@@ -249,7 +256,13 @@ export class HearthScene extends Phaser.Scene {
       return;
     }
     if (job.kind === "workbench") {
-      bridge.emit({ type: "hint", text: "A workbench waiting for craft. Not today." });
+      if (countItem(player.inventory, "wheat") < 1) {
+        bridge.emit({ type: "hint", text: "The oven wants a sheaf of wheat. Harvest the garden, then come back." });
+        return;
+      }
+      burst(this, this.pilgrim.x, this.pilgrim.y, 0xc4a35a);
+      floatText(this, this.pilgrim.x, this.pilgrim.y - 18, "Baked", "#c4a35a");
+      bridge.emit({ type: "bake-bread" });
       return;
     }
     if (job.kind === "bren") {

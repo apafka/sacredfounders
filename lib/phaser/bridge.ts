@@ -13,6 +13,9 @@ export type WorldEvent =
   | { type: "pickup-pelt"; id?: string }
   | { type: "rest-bed" }
   | { type: "use-potion" }
+  | { type: "eat-bread" }
+  | { type: "bake-bread" }
+  | { type: "fulfill-demand" }
   | { type: "respawn-wilderness" }
   | { type: "combat"; you: number }
   | { type: "health"; health: number }

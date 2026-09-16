@@ -2,11 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
-import { plotStage } from "@/lib/crops";
+import { CROP_META, plotStage } from "@/lib/crops";
 import type { ShopSku } from "@/lib/data/npcs";
 import type { WorldEvent } from "@/lib/phaser/bridge";
 import { preferredRenderer, type WorldRenderer } from "@/lib/three/engine";
-import type { PlayerState } from "@/lib/types";
+import type { CropId, GoodsId, PlayerState } from "@/lib/types";
 import { DialoguePanel } from "./dialogue-panel";
 import { GameHud } from "./game-hud";
 import { InventoryPanel } from "./inventory-panel";
@@ -40,6 +40,7 @@ class CanvasGuard extends Component<{ onFail: () => void; children: ReactNode },
 
 export function WorldStage({
   player,
+  seed,
   busy,
   inventoryOpen,
   dialogueOpen,
@@ -47,12 +48,16 @@ export function WorldStage({
   hint,
   onHint,
   onToast,
+  onSeed,
   onPlant,
   onHarvest,
   onSell,
   onBuy,
+  onBake,
+  onFulfill,
   onRest,
   onUsePotion,
+  onEatBread,
   onDoor,
   onWolfDown,
   onPickupPelt,
@@ -63,6 +68,7 @@ export function WorldStage({
   onToggleDialogue,
 }: {
   player: PlayerState;
+  seed: CropId;
   busy: boolean;
   inventoryOpen: boolean;
   dialogueOpen: boolean;
@@ -70,12 +76,16 @@ export function WorldStage({
   hint: string;
   onHint: (text: string) => void;
   onToast: (text: string) => void;
+  onSeed: (crop: CropId) => void;
   onPlant: (plotId: number) => void;
   onHarvest: (plotId: number) => void;
-  onSell: () => void;
+  onSell: (good?: GoodsId) => void;
   onBuy: (sku: ShopSku) => void;
+  onBake: () => void;
+  onFulfill: () => void;
   onRest: () => void;
   onUsePotion: () => void;
+  onEatBread: () => void;
   onDoor: (scene: "hearth" | "valley") => void;
   onWolfDown: (id?: string) => void;
   onPickupPelt: (id?: string) => void;
@@ -137,6 +147,15 @@ export function WorldStage({
         case "use-potion":
           onUsePotion();
           break;
+        case "eat-bread":
+          onEatBread();
+          break;
+        case "bake-bread":
+          onBake();
+          break;
+        case "fulfill-demand":
+          onFulfill();
+          break;
         case "respawn-wilderness":
           onRespawn();
           break;
@@ -154,7 +173,7 @@ export function WorldStage({
           break;
       }
     },
-    [engine, isoFailed, onBuy, onDoor, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onRest, onRespawn, onToast, onToggleDialogue, onToggleInventory, onUsePotion, onWolfDown],
+    [engine, isoFailed, onBake, onBuy, onDoor, onEatBread, onFulfill, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onRest, onRespawn, onToast, onToggleDialogue, onToggleInventory, onUsePotion, onWolfDown],
   );
 
   const usePhaser = engine === "phaser" || isoFailed;
@@ -164,20 +183,46 @@ export function WorldStage({
       <div className="game-frame">
         <TextSlice
           player={player}
+          seed={seed}
           busy={busy}
           onPlant={onPlant}
           onHarvest={onHarvest}
           onSell={onSell}
           onBuy={onBuy}
+          onBake={onBake}
           onDoor={onDoor}
           onWolfDown={onWolfDown}
           onPickupPelt={onPickupPelt}
           onRest={onRest}
         />
-        <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} onRest={onRest} />
-        {inventoryOpen ? <InventoryPanel player={player} onClose={() => onToggleInventory(false)} onUsePotion={onUsePotion} /> : null}
+        <GameHud
+          player={player}
+          seed={seed}
+          toast={toast}
+          hint={hint}
+          onInventory={() => onToggleInventory()}
+          onUsePotion={onUsePotion}
+          onEatBread={onEatBread}
+          onRest={onRest}
+          onSeed={onSeed}
+        />
+        {inventoryOpen ? (
+          <InventoryPanel
+            player={player}
+            onClose={() => onToggleInventory(false)}
+            onUsePotion={onUsePotion}
+            onEatBread={onEatBread}
+          />
+        ) : null}
         {dialogueOpen ? (
-          <DialoguePanel player={player} onSell={onSell} onBuy={onBuy} onClose={() => onToggleDialogue(false)} />
+          <DialoguePanel
+            player={player}
+            onSell={onSell}
+            onBuy={onBuy}
+            onBake={onBake}
+            onFulfill={onFulfill}
+            onClose={() => onToggleDialogue(false)}
+          />
         ) : null}
       </div>
     );
@@ -187,16 +232,31 @@ export function WorldStage({
     <div className="game-frame">
       <CanvasGuard key={usePhaser ? "phaser" : "iso"} onFail={() => onEvent({ type: "fail" })}>
         {usePhaser ? (
-          <PhaserCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
+          <PhaserCanvas player={player} seed={seed} busy={busy} onEvent={onEvent} />
         ) : (
-          <IsoCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
+          <IsoCanvas player={player} seed={seed} busy={busy} onEvent={onEvent} />
         )}
       </CanvasGuard>
-      <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} onRest={onRest} />
+      <GameHud
+        player={player}
+        seed={seed}
+        toast={toast}
+        hint={hint}
+        onInventory={() => onToggleInventory()}
+        onUsePotion={onUsePotion}
+        onEatBread={onEatBread}
+        onRest={onRest}
+        onSeed={onSeed}
+      />
       {inventoryOpen ? (
         <>
           <button className="hud-backdrop" type="button" aria-label="Close pack" onClick={() => onToggleInventory(false)} />
-          <InventoryPanel player={player} onClose={() => onToggleInventory(false)} onUsePotion={onUsePotion} />
+          <InventoryPanel
+            player={player}
+            onClose={() => onToggleInventory(false)}
+            onUsePotion={onUsePotion}
+            onEatBread={onEatBread}
+          />
         </>
       ) : null}
       {dialogueOpen ? (
@@ -206,6 +266,8 @@ export function WorldStage({
             player={player}
             onSell={onSell}
             onBuy={onBuy}
+            onBake={onBake}
+            onFulfill={onFulfill}
             onClose={() => onToggleDialogue(false)}
           />
         </>
@@ -216,22 +278,26 @@ export function WorldStage({
 
 function TextSlice({
   player,
+  seed,
   busy,
   onPlant,
   onHarvest,
   onSell,
   onBuy,
+  onBake,
   onDoor,
   onWolfDown,
   onPickupPelt,
   onRest,
 }: {
   player: PlayerState;
+  seed: CropId;
   busy: boolean;
   onPlant: (plotId: number) => void;
   onHarvest: (plotId: number) => void;
-  onSell: () => void;
+  onSell: (good?: GoodsId) => void;
   onBuy: (sku: ShopSku) => void;
+  onBake: () => void;
   onDoor: (scene: "hearth" | "valley") => void;
   onWolfDown: (id?: string) => void;
   onPickupPelt: (id?: string) => void;
@@ -293,14 +359,23 @@ function TextSlice({
               }}
             >
               <div className="text-xs text-[var(--muted)]">Plot {plot.id + 1}</div>
-              <div>{stage === "empty" ? "Empty · plant wheat" : stage === "ready" ? "Wheat ready" : `Wheat ${stage}`}</div>
+              <div>
+                {stage === "empty"
+                  ? `Empty · plant ${CROP_META[seed].name}`
+                  : stage === "ready"
+                    ? `${CROP_META[plot.crop ?? seed].name} ready`
+                    : `${CROP_META[plot.crop ?? seed].name} ${stage}`}
+              </div>
             </button>
           );
         })}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button className="btn-quiet" type="button" onClick={onSell}>
+        <button className="btn-quiet" type="button" onClick={() => onSell()}>
           Talk to Old Bren
+        </button>
+        <button className="btn-quiet" type="button" onClick={onBake}>
+          Bake bread
         </button>
         <button className="btn-quiet" type="button" onClick={onRest}>
           Rest at the bed

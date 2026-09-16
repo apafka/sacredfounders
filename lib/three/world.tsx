@@ -31,7 +31,7 @@ import {
   ScaleShard,
   SoilBed,
   Tracks,
-  WheatStalk,
+  CropPlant,
 } from "./prefabs";
 
 const dummy = new Object3D();
@@ -190,7 +190,7 @@ export function HearthWorld({
             }}
           >
             <SoilBed position={[0, 0, 0]} />
-            {stage !== "empty" ? <WheatStalk stage={stage} /> : null}
+            {stage !== "empty" && planted?.crop ? <CropPlant crop={planted.crop} stage={stage} /> : null}
             <mesh position={[0, 0.45, 0]}>
               <boxGeometry args={[1.05, 0.95, 1.05]} />
               <meshBasicMaterial transparent opacity={0.02} depthWrite={false} />
@@ -264,7 +264,7 @@ export function HearthWorld({
       <WorldLabel text="Fire" position={[fire.x, 1.35, fire.z]} />
       <WorldLabel text="Bed" position={[bed.x, 1.35, bed.z]} />
       <WorldLabel text="Chest" position={[chest.x, 0.85, chest.z]} />
-      <WorldLabel text="Workbench" position={[bench.x, 0.85, bench.z]} />
+      <WorldLabel text="Oven" position={[bench.x, 0.85, bench.z]} />
       <WorldLabel text="Old Bren" position={[bren.x, 1.45, bren.z]} />
       <WorldLabel text="Path" position={[door.x, 1.7, door.z]} />
     </group>

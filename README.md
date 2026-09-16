@@ -22,18 +22,17 @@ npm test
 npm run build
 ```
 
-## Loop (V1 vertical slice)
+## Loop (living bakery)
 
-1. Spawn at the hearth — bed, fireplace, chest, workbench, door. Warm cottage, garden just outside.
-2. Three farm plots. Start with 3 wheat seeds. Plant → grow ~45s with visual stages → harvest → Farming XP.
-3. Walk to **Old Bren** (a baker, not a shop UI). Short dialogue.
-4. Sell wheat → **+6 Gold** for three sheaves.
-5. Path through the door to the forest edge. One wolf.
-6. Click the wolf → auto-attack, HP bars, damage numbers, death.
-7. Wolf Pelt drops. Click it → inventory + Combat XP.
-8. HUD: health, gold, pack (I), Farming + Combat. No wallet, marketplace, or chain copy.
-9. `GamePersistence` saves position, gold, inventory, skills, and crops to localStorage. Pilgrim cookie `sf_pilgrim` still identifies the session.
-10. Dragon is presence only: tracks, a scale, a carving, Bren's rumor.
+1. Spawn at the hearth — bed, fireplace, chest, oven, door. Warm cottage, garden just outside.
+2. Three farm plots and three seeds (wheat, root, herb). HUD buttons or keys 1/2/3 pick the seed. Plant → grow ~40–50s with distinct visuals → harvest returns the seed + Farming XP.
+3. Walk to the **oven** (cottage workbench): 1 wheat → 1 bread. Grain is consumed.
+4. Walk to **Old Bren**. He wants three loaves (DeterministicBrain demand). Deliver them for a neighbor bonus, or sell crops at 2/3/5 gold. Shop still sells potion, blade, coat.
+5. Eat bread from the pack (B, or click) for **+6 HP**. Potion is +10. Bed is a full rest. They are not the same.
+6. Path through the door to the forest edge. Wolves. Click to fight. Pelts drop.
+7. HUD: health, gold, seed picker, pack (I), Farming + Combat. No wallet, marketplace, or chain copy.
+8. `GamePersistence` saves position, gold, inventory, skills, crops, bread, and Bren's demand. Pilgrim cookie `sf_pilgrim` still identifies the session.
+9. Dragon is presence only: tracks, a scale, a carving, Bren's rumor.
 
 ## Deploy (CBO)
 
