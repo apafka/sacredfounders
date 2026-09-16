@@ -12,6 +12,7 @@ import {
   HEARTH_TILES,
   VALLEY_SPOTS,
   VALLEY_TILES,
+  VALLEY_ENCOUNTERS,
   VALLEY_TREES,
   isWalkable,
 } from "@/lib/phaser/layout";
@@ -62,7 +63,7 @@ function InstancedBoxes({
   }, [cells, y]);
   if (cells.length === 0) return null;
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, cells.length]} receiveShadow castShadow={castShadow}>
+    <instancedMesh ref={ref} args={[undefined, undefined, cells.length]} receiveShadow castShadow={castShadow} raycast={() => undefined}>
       <boxGeometry args={size} />
       <meshStandardMaterial color={color} roughness={0.9} metalness={0} />
     </instancedMesh>
@@ -161,11 +162,11 @@ export function HearthWorld({
       <InstancedBoxes cells={walls} color={PALETTE.wall} size={[0.92, 1.2, 0.92]} y={0.6} castShadow />
       {roof ? (
         <group position={[roof.cx, 1.85, roof.cz]}>
-          <mesh rotation={[0.48, 0, 0]} position={[0, 0.08, -roof.d * 0.22]} castShadow>
+          <mesh rotation={[0.48, 0, 0]} position={[0, 0.08, -roof.d * 0.22]} castShadow raycast={() => undefined}>
             <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roof} roughness={0.85} />
           </mesh>
-          <mesh rotation={[-0.48, 0, 0]} position={[0, 0.08, roof.d * 0.22]} castShadow>
+          <mesh rotation={[-0.48, 0, 0]} position={[0, 0.08, roof.d * 0.22]} castShadow raycast={() => undefined}>
             <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roofShadow} roughness={0.85} />
           </mesh>
@@ -199,36 +200,44 @@ export function HearthWorld({
       })}
 
       <group
+        position={[fire.x, 0, fire.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "fire" });
         }}
       >
-        <HearthFire position={[fire.x, 0, fire.z]} />
+        <HearthFire position={[0, 0, 0]} />
+        <ClickVolume size={[1.4, 2.0, 1.4]} y={0.9} />
       </group>
       <group
+        position={[bed.x, 0, bed.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "bed" });
         }}
       >
-        <BedProp position={[bed.x, 0, bed.z]} />
+        <BedProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.7, 2.5, 1.7]} y={1.15} />
       </group>
       <group
+        position={[chest.x, 0, chest.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "chest" });
         }}
       >
-        <ChestProp position={[chest.x, 0, chest.z]} />
+        <ChestProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.4, 2.0, 1.4]} y={0.95} />
       </group>
       <group
+        position={[bench.x, 0, bench.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "workbench" });
         }}
       >
-        <BenchProp position={[bench.x, 0, bench.z]} />
+        <BenchProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.5, 2.0, 1.4]} y={0.95} />
       </group>
       <group
         position={[bren.x, 0, bren.z]}
@@ -253,7 +262,7 @@ export function HearthWorld({
 
       <WorldLabel text="Garden" position={[garden.x, 1.15, garden.z]} />
       <WorldLabel text="Fire" position={[fire.x, 1.35, fire.z]} />
-      <WorldLabel text="Bed" position={[bed.x, 0.85, bed.z]} />
+      <WorldLabel text="Bed" position={[bed.x, 1.35, bed.z]} />
       <WorldLabel text="Chest" position={[chest.x, 0.85, chest.z]} />
       <WorldLabel text="Workbench" position={[bench.x, 0.85, bench.z]} />
       <WorldLabel text="Old Bren" position={[bren.x, 1.45, bren.z]} />
@@ -262,7 +271,14 @@ export function HearthWorld({
   );
 }
 
-export type ValleyJob = { kind: "door" } | { kind: "wolf" } | { kind: "pelt" } | { kind: "tracks" } | { kind: "scale" } | { kind: "carving" } | { kind: "walk"; x: number; z: number };
+export type ValleyJob =
+  | { kind: "door" }
+  | { kind: "wolf"; id?: string }
+  | { kind: "pelt"; id?: string }
+  | { kind: "tracks" }
+  | { kind: "scale" }
+  | { kind: "carving" }
+  | { kind: "walk"; x: number; z: number };
 
 export function ValleyWorld({
   onWalk,
@@ -295,7 +311,8 @@ export function ValleyWorld({
   const tracks = tileToWorld(VALLEY_SPOTS.tracks.col, VALLEY_SPOTS.tracks.row);
   const scale = tileToWorld(VALLEY_SPOTS.scale.col, VALLEY_SPOTS.scale.row);
   const carving = tileToWorld(VALLEY_SPOTS.carving.col, VALLEY_SPOTS.carving.row);
-  const edge = tileToWorld(10, 4);
+  const edge = tileToWorld(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
+  const deep = tileToWorld(VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.col ?? 10, VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.row ?? 4);
 
   return (
     <group>
@@ -345,6 +362,7 @@ export function ValleyWorld({
       <WorldLabel text="Carving" position={[carving.x, 0.85, carving.z]} />
       <WorldLabel text="Home" position={[door.x, 1.7, door.z]} />
       <WorldLabel text="Forest edge" position={[edge.x, 1.3, edge.z]} />
+      <WorldLabel text="Deep woods" position={[deep.x, 1.45, deep.z]} />
     </group>
   );
 }

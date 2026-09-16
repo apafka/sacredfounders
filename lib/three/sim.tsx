@@ -3,8 +3,9 @@
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as THREE from "three";
-import { PLAYER_MAX_HP } from "@/lib/combat";
+import { PLAYER_MAX_HP, RESPAWN_MS, mitigateDamage, playerStrikeDamage } from "@/lib/combat";
 import { plotReady, plotStage } from "@/lib/crops";
+import { enemyDefinition } from "@/lib/data/enemies";
 import { CROP_META, type Scene } from "@/lib/types";
 import type { WorldBridge } from "@/lib/phaser/bridge";
 import { consumeInteract, windowAxis } from "@/lib/phaser/keys";
@@ -25,13 +26,16 @@ import { hearthRoute, slide, stepToward } from "@/lib/phaser/move";
 import {
   ATTACK_RANGE,
   PLAYER_ATTACK_MS,
-  PLAYER_DAMAGE,
   PLAYER_SPEED,
   STRIKE_RANGE,
-  createWolf,
+  lootVisible,
+  nearestLiving,
+  spawnValleyFoes,
+  spawnWanderBounds,
   tickWolf,
   tryStrike,
-  type Wolf,
+  valleyMapBounds,
+  type Foe,
 } from "@/lib/phaser/wolf-ai";
 import { clampDelta, pxToWorld, worldToPx } from "./coords";
 import { ISO_DISTANCE, isoCameraPosition, isoZoomForViewport } from "./engine";
@@ -42,9 +46,9 @@ import { HearthWorld, ValleyWorld, type HearthJob, type ValleyJob } from "./worl
 const REACH_HEARTH = 28;
 const INTERACT = 36;
 const REACH_VALLEY = 12;
-const MARGIN = TILE + 8;
 
 type Floater = { id: number; text: string; color: string; x: number; z: number; born: number };
+type Tint = "hit" | "agro" | "dead" | null;
 
 function jobPos(job: HearthJob): { x: number; y: number } {
   if (job.kind === "plot") {
@@ -61,10 +65,10 @@ function nearestHearthJob(x: number, y: number): HearthJob | null {
     if (Math.hypot(x - pos.x, y - pos.y) < TILE) return { kind: "plot", plotId: plot.id };
   }
   const furniture: { kind: Exclude<HearthJob["kind"], "plot">; radius: number }[] = [
-    { kind: "fire", radius: TILE },
-    { kind: "bed", radius: TILE },
-    { kind: "chest", radius: TILE },
-    { kind: "workbench", radius: TILE },
+    { kind: "fire", radius: TILE * 1.2 },
+    { kind: "bed", radius: TILE * 1.35 },
+    { kind: "chest", radius: TILE * 1.2 },
+    { kind: "workbench", radius: TILE * 1.2 },
     { kind: "bren", radius: TILE * 1.8 },
     { kind: "door", radius: TILE * 1.1 },
   ];
@@ -80,36 +84,58 @@ function sceneStart(bridge: WorldBridge, scene: Scene) {
   const saved = player.position && player.scene === scene ? player.position : null;
   const pad = scene === "valley" ? VALLEY_SPOTS.spawn : HEARTH_SPOTS.spawn;
   const start = saved ?? worldCenter(pad.col, pad.row);
-  const wolfPad = worldCenter(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
-  return { player, start, wolfPad };
+  return { player, start };
+}
+
+function emptyUi(foes: Foe[]) {
+  const visible: Record<string, boolean> = {};
+  const tint: Record<string, Tint> = {};
+  const loot: Record<string, boolean> = {};
+  for (const foe of foes) {
+    visible[foe.id] = foe.hp > 0;
+    tint[foe.id] = foe.hp > 0 ? null : "dead";
+    loot[foe.id] = false;
+  }
+  return { visible, tint, loot };
 }
 
 export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene }) {
   const boot = sceneStart(bridge, scene);
   const startWorld = pxToWorld(boot.start.x, boot.start.y);
   const pilgrim = useRef<THREE.Group>(null);
-  const wolfGroup = useRef<THREE.Group>(null);
+  const foeMeshes = useRef<Record<string, THREE.Group | null>>({});
   const look = useRef(startWorld);
   const body = useRef({ x: boot.start.x, y: boot.start.y, hp: boot.player.health || PLAYER_MAX_HP });
   const dest = useRef({ x: boot.start.x, y: boot.start.y });
   const waypoints = useRef<{ x: number; y: number }[]>([]);
   const moving = useRef(false);
-  const hunting = useRef(false);
+  const huntingId = useRef<string | null>(null);
   const job = useRef<HearthJob | null>(null);
-  const wolf = useRef<Wolf>(
-    createWolf(boot.wolfPad.x, boot.wolfPad.y, boot.player.wolf.alive ? boot.player.wolf.hp || 12 : 0),
-  );
+  const foes = useRef<Foe[]>(spawnValleyFoes(boot.player));
   const attackCd = useRef(0);
   const usedDoor = useRef(false);
-  const reportedDown = useRef(!boot.player.wolf.alive);
+  const reported = useRef(new Set(foes.current.filter((foe) => foe.hp <= 0).map((foe) => foe.id)));
   const persistAt = useRef(0);
   const cropTick = useRef(0);
   const flipped = useRef(false);
+  const timerArmed = useRef(false);
   const [marker, setMarker] = useState({ x: 0, z: 0, on: false });
   const [floats, setFloats] = useState<Floater[]>([]);
-  const [peltOn, setPeltOn] = useState(Boolean(boot.player.wolf.peltDropped && !boot.player.wolf.peltTaken));
-  const [wolfTint, setWolfTint] = useState<"hit" | "agro" | "dead" | null>(boot.player.wolf.alive ? null : "dead");
-  const [wolfVisible, setWolfVisible] = useState(boot.player.wolf.alive);
+  const [lootOn, setLootOn] = useState<Record<string, boolean>>(() => {
+    const loot: Record<string, boolean> = {};
+    for (const foe of foes.current) loot[foe.id] = lootVisible(boot.player, foe.id);
+    return loot;
+  });
+  const [foeTint, setFoeTint] = useState<Record<string, Tint>>(() => {
+    const tint: Record<string, Tint> = {};
+    for (const foe of foes.current) tint[foe.id] = foe.hp > 0 ? null : "dead";
+    return tint;
+  });
+  const [foeVisible, setFoeVisible] = useState<Record<string, boolean>>(() => {
+    const visible: Record<string, boolean> = {};
+    for (const foe of foes.current) visible[foe.id] = foe.hp > 0;
+    return visible;
+  });
   const [tick, setTick] = useState(0);
   const floatId = useRef(1);
 
@@ -118,17 +144,16 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     body.current = { x: next.start.x, y: next.start.y, hp: next.player.health || PLAYER_MAX_HP };
     dest.current = { x: next.start.x, y: next.start.y };
     look.current = pxToWorld(next.start.x, next.start.y);
-    wolf.current = createWolf(next.wolfPad.x, next.wolfPad.y, next.player.wolf.alive ? next.player.wolf.hp || 12 : 0);
-    if (!next.player.wolf.alive) {
-      wolf.current.hp = 0;
-      wolf.current.mode = "dead";
-    }
+    foes.current = spawnValleyFoes(next.player);
     usedDoor.current = false;
-    hunting.current = false;
-    reportedDown.current = !next.player.wolf.alive;
-    setPeltOn(Boolean(next.player.wolf.peltDropped && !next.player.wolf.peltTaken));
-    setWolfVisible(next.player.wolf.alive);
-    setWolfTint(next.player.wolf.alive ? null : "dead");
+    huntingId.current = null;
+    timerArmed.current = false;
+    reported.current = new Set(foes.current.filter((foe) => foe.hp <= 0).map((foe) => foe.id));
+    const ui = emptyUi(foes.current);
+    for (const foe of foes.current) ui.loot[foe.id] = lootVisible(next.player, foe.id);
+    setLootOn(ui.loot);
+    setFoeVisible(ui.visible);
+    setFoeTint(ui.tint);
     setMarker({ x: 0, z: 0, on: false });
   };
 
@@ -136,9 +161,11 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     spawn();
     const w = look.current;
     pilgrim.current?.position.set(w.x, 0, w.z);
-    if (wolfGroup.current) {
-      const ww = pxToWorld(wolf.current.x, wolf.current.y);
-      wolfGroup.current.position.set(ww.x, 0, ww.z);
+    for (const foe of foes.current) {
+      const mesh = foeMeshes.current[foe.id];
+      if (!mesh) continue;
+      const ww = pxToWorld(foe.x, foe.y);
+      mesh.position.set(ww.x, 0, ww.z);
     }
     if (scene === "hearth") {
       bridge.emit({
@@ -146,14 +173,13 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
         text: "This is your hearth. WASD or click to walk. Garden and Old Bren are just outside. The path leaves east.",
       });
     } else {
-      const player = bridge.getPlayer();
+      const living = foes.current.filter((foe) => foe.hp > 0).length;
       bridge.emit({
         type: "hint",
-        text: player.wolf.alive
-          ? "The trees close in. A wolf at the forest edge. Click it to fight."
-          : player.wolf.peltDropped
-            ? "The wolf is still. A pelt in the grass."
-            : "The forest keeps its own counsel. What's beyond those pines?",
+        text:
+          living > 0
+            ? "The woods run longer now. A pack on the path, something larger further in. Click to fight."
+            : "The forest keeps its own counsel. Home will wake the pack again.",
       });
     }
     // spawn + hint once per scene mount
@@ -177,7 +203,7 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     dest.current = first;
     job.current = nextJob;
     moving.current = true;
-    hunting.current = false;
+    huntingId.current = null;
     flipped.current = first.x < body.current.x;
     const w = pxToWorld(px, py);
     setMarker({ x: w.x, z: w.z, on: true });
@@ -222,7 +248,15 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       return;
     }
     if (next.kind === "bed") {
-      bridge.emit({ type: "hint", text: "Your bed. The day is young." });
+      const missing = player.maxHealth - player.health;
+      if (missing > 0) {
+        body.current.hp = player.maxHealth;
+        puff(look.current.x, look.current.z, `+${missing} HP`, "#6d7a4e");
+      } else {
+        puff(look.current.x, look.current.z, "Already rested", "#c4a35a");
+        bridge.emit({ type: "hint", text: "You lie down. You are already rested." });
+      }
+      bridge.emit({ type: "rest-bed" });
       return;
     }
     if (next.kind === "chest") {
@@ -248,48 +282,61 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     bridge.emit({ type: "door", scene: target });
   };
 
-  const takePelt = () => {
-    if (!peltOn || bridge.isBusy()) return;
-    setPeltOn(false);
-    bridge.emit({ type: "pickup-pelt" });
-    bridge.emit({ type: "toast", text: "Wolf Pelt acquired." });
-    const w = pxToWorld(wolf.current.x, wolf.current.y);
-    puff(w.x, w.z, "Wolf Pelt acquired.", "#c4a35a");
+  const takePelt = (id: string) => {
+    if (!lootOn[id] || bridge.isBusy()) return;
+    setLootOn((prev) => ({ ...prev, [id]: false }));
+    const foe = foes.current.find((item) => item.id === id);
+    const text = foe?.kind === "dire" ? "Dire Hide acquired." : "Wolf Pelt acquired.";
+    bridge.emit({ type: "pickup-pelt", id });
+    bridge.emit({ type: "toast", text });
+    if (foe) {
+      const w = pxToWorld(foe.x, foe.y);
+      puff(w.x, w.z, text, "#c4a35a");
+    }
   };
 
-  const onWolfDown = () => {
-    if (reportedDown.current) return;
-    reportedDown.current = true;
-    hunting.current = false;
-    wolf.current.mode = "dead";
-    setWolfTint("dead");
-    setWolfVisible(false);
-    setPeltOn(true);
-    const w = pxToWorld(wolf.current.x, wolf.current.y);
-    puff(w.x, w.z, "The wolf falls", "#c4a35a");
-    bridge.emit({ type: "wolf-down" });
-    bridge.emit({ type: "hint", text: "A pelt in the grass. Click it." });
+  const onFoeDown = (foe: Foe) => {
+    if (reported.current.has(foe.id)) return;
+    reported.current.add(foe.id);
+    if (huntingId.current === foe.id) huntingId.current = null;
+    foe.mode = "dead";
+    setFoeTint((prev) => ({ ...prev, [foe.id]: "dead" }));
+    setFoeVisible((prev) => ({ ...prev, [foe.id]: false }));
+    setLootOn((prev) => ({ ...prev, [foe.id]: true }));
+    const w = pxToWorld(foe.x, foe.y);
+    puff(w.x, w.z, foe.kind === "dire" ? "The dire wolf falls" : "The wolf falls", "#c4a35a");
+    bridge.emit({ type: "wolf-down", id: foe.id });
+    bridge.emit({
+      type: "hint",
+      text: foe.kind === "dire" ? "A heavy hide in the grass. Click it." : "A pelt in the grass. Click it.",
+    });
   };
 
-  const tryAttack = () => {
-    if (wolf.current.hp <= 0 || body.current.hp <= 0) {
-      hunting.current = false;
+  const tryAttack = (id: string) => {
+    const foe = foes.current.find((item) => item.id === id);
+    if (!foe || foe.hp <= 0 || body.current.hp <= 0) {
+      huntingId.current = null;
       return false;
     }
-    const next = tryStrike(body.current, wolf.current, PLAYER_DAMAGE);
+    const damage = playerStrikeDamage(bridge.getPlayer().hasSword);
+    const next = tryStrike(body.current, foe, damage);
     if (next) {
-      wolf.current = { ...wolf.current, hp: next.hp, hitFlash: 180, mode: next.hp <= 0 ? "dead" : wolf.current.mode };
+      foe.hp = next.hp;
+      foe.hitFlash = 180;
+      foe.mode = next.hp <= 0 ? "dead" : foe.mode;
       attackCd.current = PLAYER_ATTACK_MS;
-      setWolfTint("hit");
-      window.setTimeout(() => setWolfTint(wolf.current.hp > 0 ? "agro" : "dead"), 140);
-      const w = pxToWorld(wolf.current.x, wolf.current.y);
-      puff(w.x, w.z, `-${PLAYER_DAMAGE}`, "#f3efe4");
-      flipped.current = wolf.current.x < body.current.x;
-      if (wolf.current.hp <= 0) onWolfDown();
+      setFoeTint((prev) => ({ ...prev, [foe.id]: "hit" }));
+      window.setTimeout(() => {
+        setFoeTint((prev) => ({ ...prev, [foe.id]: foe.hp > 0 ? "agro" : "dead" }));
+      }, 140);
+      const w = pxToWorld(foe.x, foe.y);
+      puff(w.x, w.z, `-${damage}`, "#f3efe4");
+      flipped.current = foe.x < body.current.x;
+      if (foe.hp <= 0) onFoeDown(foe);
       return true;
     }
-    hunting.current = true;
-    walkTo(wolf.current.x, wolf.current.y);
+    huntingId.current = foe.id;
+    walkTo(foe.x, foe.y);
     return false;
   };
 
@@ -305,14 +352,18 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       return;
     }
     if (next.kind === "door") {
-      hunting.current = false;
+      huntingId.current = null;
       const pos = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
       walkTo(pos.x, pos.y);
       return;
     }
     if (next.kind === "pelt") {
-      if (Math.hypot(body.current.x - wolf.current.x, body.current.y - wolf.current.y) < TILE * 1.2) takePelt();
-      else walkTo(wolf.current.x, wolf.current.y + 10);
+      const id = next.id ?? foes.current.find((foe) => lootOn[foe.id])?.id;
+      if (!id) return;
+      const foe = foes.current.find((item) => item.id === id);
+      if (!foe) return;
+      if (Math.hypot(body.current.x - foe.x, body.current.y - foe.y) < TILE * 1.2) takePelt(id);
+      else walkTo(foe.x, foe.y + 10);
       return;
     }
     if (next.kind === "tracks") {
@@ -336,9 +387,13 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       });
       return;
     }
-    hunting.current = true;
-    bridge.emit({ type: "hint", text: "You set on the wolf." });
-    tryAttack();
+    const target =
+      (next.id ? foes.current.find((foe) => foe.id === next.id) : null) ??
+      nearestLiving(foes.current, body.current.x, body.current.y, TILE * 6);
+    if (!target || target.hp <= 0) return;
+    huntingId.current = target.id;
+    bridge.emit({ type: "hint", text: target.kind === "dire" ? "You set on the dire wolf." : "You set on the wolf." });
+    tryAttack(target.id);
   };
 
   const onWalk = (wx: number, wz: number) => {
@@ -370,21 +425,25 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     } else {
       const door = worldCenter(VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row);
       if (Math.hypot(px.x - door.x, px.y - door.y) < TILE) {
-        hunting.current = false;
+        huntingId.current = null;
         walkTo(door.x, door.y);
         return;
       }
-      if (peltOn && Math.hypot(px.x - wolf.current.x, px.y - wolf.current.y) < TILE) {
-        onValleyJob({ kind: "pelt" });
+      const lootFoe = foes.current.find(
+        (foe) => lootOn[foe.id] && Math.hypot(px.x - foe.x, px.y - foe.y) < TILE,
+      );
+      if (lootFoe) {
+        onValleyJob({ kind: "pelt", id: lootFoe.id });
         return;
       }
-      if (wolf.current.hp > 0 && Math.hypot(px.x - wolf.current.x, px.y - wolf.current.y) < TILE * 1.5) {
-        onValleyJob({ kind: "wolf" });
+      const wolf = nearestLiving(foes.current, px.x, px.y, TILE * 1.8);
+      if (wolf) {
+        onValleyJob({ kind: "wolf", id: wolf.id });
         return;
       }
     }
 
-    hunting.current = false;
+    huntingId.current = null;
     walkTo(px.x, px.y, null);
   };
 
@@ -397,6 +456,9 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       cropTick.current = 0;
       setTick((n) => n + 1);
     }
+
+    const stored = bridge.getPlayer();
+    if (stored.health > body.current.hp) body.current.hp = stored.health;
 
     if (job.current) {
       const pos = jobPos(job.current);
@@ -414,9 +476,10 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
 
     const axis = windowAxis();
     const tiles = scene === "valley" ? VALLEY_TILES : HEARTH_TILES;
+    const hunted = huntingId.current ? foes.current.find((foe) => foe.id === huntingId.current) : null;
     if (axis.x !== 0 || axis.y !== 0) {
       moving.current = false;
-      hunting.current = false;
+      huntingId.current = null;
       job.current = null;
       waypoints.current = [];
       setMarker((m) => (m.on ? { ...m, on: false } : m));
@@ -430,15 +493,15 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       body.current.x = next.x;
       body.current.y = next.y;
       flipped.current = axis.x < 0;
-    } else if (scene === "valley" && hunting.current && wolf.current.hp > 0 && body.current.hp > 0) {
-      const dist = Math.hypot(body.current.x - wolf.current.x, body.current.y - wolf.current.y);
-      if (dist <= ATTACK_RANGE && attackCd.current <= 0) tryAttack();
+    } else if (scene === "valley" && hunted && hunted.hp > 0 && body.current.hp > 0) {
+      const dist = Math.hypot(body.current.x - hunted.x, body.current.y - hunted.y);
+      if (dist <= ATTACK_RANGE && attackCd.current <= 0) tryAttack(hunted.id);
       else if (dist > ATTACK_RANGE) {
-        const stepped = stepToward(body.current.x, body.current.y, wolf.current.x, wolf.current.y, PLAYER_SPEED, dt, REACH_VALLEY);
+        const stepped = stepToward(body.current.x, body.current.y, hunted.x, hunted.y, PLAYER_SPEED, dt, REACH_VALLEY);
         const slid = slide(tiles, body.current.x, body.current.y, stepped.x, stepped.y);
         body.current.x = slid.x;
         body.current.y = slid.y;
-        flipped.current = wolf.current.x < body.current.x;
+        flipped.current = hunted.x < body.current.x;
       }
     } else if (moving.current) {
       const prevX = body.current.x;
@@ -469,41 +532,85 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       }
     }
 
-    if (scene === "valley" && wolf.current.hp > 0) {
-      const ticked = tickWolf(body.current, wolf.current, dt, Math.random, {
-        minX: MARGIN,
-        minY: MARGIN,
-        maxX: TILE * ((VALLEY_TILES[0]?.length ?? 2) - 2),
-        maxY: TILE * 10,
-      });
-      wolf.current = ticked.wolf;
-      if (ticked.wolfHit && ticked.player.hp < body.current.hp) {
-        const w = pxToWorld(body.current.x, body.current.y);
-        puff(w.x, w.z, `-${ticked.wolfHit}`, "#b33a2b");
-        setWolfTint("agro");
+    if (scene === "valley") {
+      const mapBounds = valleyMapBounds();
+      let hp = body.current.hp;
+      for (let i = 0; i < foes.current.length; i += 1) {
+        const foe = foes.current[i];
+        if (foe.hp <= 0) continue;
+        const bite = mitigateDamage(enemyDefinition(foe.kind).damage, stored.hasArmor);
+        const ticked = tickWolf(
+          { ...body.current, hp },
+          foe,
+          dt,
+          Math.random,
+          spawnWanderBounds(foe.spawnX, foe.spawnY, TILE * 2.5, mapBounds),
+          bite,
+        );
+        foes.current[i] = { ...foe, ...ticked.wolf };
+        if (ticked.wolfHit && ticked.player.hp < hp) {
+          const w = pxToWorld(body.current.x, body.current.y);
+          puff(w.x, w.z, `-${ticked.wolfHit}`, "#b33a2b");
+          setFoeTint((prev) => ({ ...prev, [foe.id]: "agro" }));
+        }
+        hp = ticked.player.hp;
+        const mesh = foeMeshes.current[foe.id];
+        if (mesh) {
+          const wpos = pxToWorld(foes.current[i].x, foes.current[i].y);
+          mesh.position.set(wpos.x, 0, wpos.z);
+          mesh.rotation.y = look.current.x < wpos.x ? Math.PI : 0;
+        }
       }
-      body.current.hp = ticked.player.hp;
-      if (wolfGroup.current) {
-        const wpos = pxToWorld(wolf.current.x, wolf.current.y);
-        wolfGroup.current.position.set(wpos.x, 0, wpos.z);
-        wolfGroup.current.rotation.y = look.current.x < wpos.x ? Math.PI : 0;
-      }
+      body.current.hp = hp;
     }
 
     if (scene === "valley" && consumeInteract()) {
-      if (peltOn && Math.hypot(body.current.x - wolf.current.x, body.current.y - wolf.current.y) < TILE * 1.4) {
-        takePelt();
-      } else if (wolf.current.hp > 0 && Math.hypot(body.current.x - wolf.current.x, body.current.y - wolf.current.y) < STRIKE_RANGE) {
-        hunting.current = true;
-        tryAttack();
+      const lootFoe = foes.current.find(
+        (foe) => lootOn[foe.id] && Math.hypot(body.current.x - foe.x, body.current.y - foe.y) < TILE * 1.4,
+      );
+      if (lootFoe) takePelt(lootFoe.id);
+      else {
+        const near = nearestLiving(foes.current, body.current.x, body.current.y, STRIKE_RANGE);
+        if (near) {
+          huntingId.current = near.id;
+          tryAttack(near.id);
+        }
       }
     }
 
-    if (scene === "valley" && peltOn && Math.hypot(body.current.x - wolf.current.x, body.current.y - wolf.current.y) < REACH_VALLEY + 10) {
-      if (moving.current && Math.hypot(dest.current.x - wolf.current.x, dest.current.y - wolf.current.y) < 18) {
-        moving.current = false;
-        setMarker((m) => ({ ...m, on: false }));
-        takePelt();
+    if (scene === "valley") {
+      for (const foe of foes.current) {
+        if (!lootOn[foe.id]) continue;
+        if (Math.hypot(body.current.x - foe.x, body.current.y - foe.y) < REACH_VALLEY + 10) {
+          if (moving.current && Math.hypot(dest.current.x - foe.x, dest.current.y - foe.y) < 18) {
+            moving.current = false;
+            setMarker((m) => ({ ...m, on: false }));
+            takePelt(foe.id);
+          }
+        }
+      }
+    }
+
+    if (scene === "valley" && !timerArmed.current && RESPAWN_MS > 0 && stored.wildernessWipedAt) {
+      if (Date.now() - stored.wildernessWipedAt >= RESPAWN_MS) {
+        timerArmed.current = true;
+        bridge.emit({ type: "respawn-wilderness" });
+        foes.current = spawnValleyFoes({
+          ...stored,
+          encounters: stored.encounters.map((item) => ({
+            ...item,
+            alive: true,
+            hp: enemyDefinition(item.kind).health,
+            lootDropped: false,
+            lootTaken: false,
+          })),
+        });
+        reported.current.clear();
+        const ui = emptyUi(foes.current);
+        setLootOn(ui.loot);
+        setFoeVisible(ui.visible);
+        setFoeTint(ui.tint);
+        bridge.emit({ type: "hint", text: "The pack answers again from the trees." });
       }
     }
 
@@ -512,7 +619,7 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
       const pad = worldCenter(VALLEY_SPOTS.spawn.col, VALLEY_SPOTS.spawn.row);
       body.current.x = pad.x;
       body.current.y = pad.y;
-      hunting.current = false;
+      huntingId.current = null;
       bridge.emit({ type: "health", health: body.current.hp });
       bridge.emit({ type: "hint", text: "You wake with the fire still in you. The hearth would take you back." });
     }
@@ -539,10 +646,8 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
     }
   });
 
-  const peltPos = pxToWorld(wolf.current.x, wolf.current.y + 8);
-  const wolfWorld = pxToWorld(wolf.current.x, wolf.current.y);
-  const playerHp = body.current.hp / PLAYER_MAX_HP;
-  const wolfHp = wolf.current.maxHp > 0 ? wolf.current.hp / wolf.current.maxHp : 0;
+  const maxHp = boot.player.maxHealth || PLAYER_MAX_HP;
+  const playerHp = body.current.hp / maxHp;
 
   return (
     <>
@@ -557,33 +662,42 @@ export function IsoSim({ bridge, scene }: { bridge: WorldBridge; scene: Scene })
         <PilgrimMesh />
         <HpBar ratio={playerHp} />
       </group>
-      {scene === "valley" ? (
-        <>
-          <group
-            ref={wolfGroup}
-            position={[wolfWorld.x, 0, wolfWorld.z]}
-            visible={wolfVisible}
-            onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-              event.stopPropagation();
-              onValleyJob({ kind: "wolf" });
-            }}
-          >
-            <WolfMesh tinted={wolfTint} />
-            {wolfVisible ? <HpBar ratio={wolfHp} /> : null}
-          </group>
-          {peltOn ? (
-            <group
-              position={[peltPos.x, 0.08, peltPos.z]}
-              onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-                event.stopPropagation();
-                onValleyJob({ kind: "pelt" });
-              }}
-            >
-              <PeltDrop position={[0, 0, 0]} />
-            </group>
-          ) : null}
-        </>
-      ) : null}
+      {scene === "valley"
+        ? foes.current.map((foe) => {
+            const world = pxToWorld(foe.x, foe.y);
+            const pelt = pxToWorld(foe.x, foe.y + 8);
+            const ratio = foe.maxHp > 0 ? foe.hp / foe.maxHp : 0;
+            return (
+              <group key={foe.id}>
+                <group
+                  ref={(el) => {
+                    foeMeshes.current[foe.id] = el;
+                  }}
+                  position={[world.x, 0, world.z]}
+                  visible={foeVisible[foe.id] !== false && foe.hp > 0}
+                  onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+                    event.stopPropagation();
+                    onValleyJob({ kind: "wolf", id: foe.id });
+                  }}
+                >
+                  <WolfMesh tinted={foeTint[foe.id] ?? null} kind={foe.kind} />
+                  {foeVisible[foe.id] !== false ? <HpBar ratio={ratio} width={foe.kind === "dire" ? 1.15 : 0.85} /> : null}
+                </group>
+                {lootOn[foe.id] ? (
+                  <group
+                    position={[pelt.x, 0.08, pelt.z]}
+                    onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+                      event.stopPropagation();
+                      onValleyJob({ kind: "pelt", id: foe.id });
+                    }}
+                  >
+                    <PeltDrop position={[0, 0, 0]} dire={foe.kind === "dire"} />
+                  </group>
+                ) : null}
+              </group>
+            );
+          })
+        : null}
       <MarkerRing position={[marker.x, 0.05, marker.z]} visible={marker.on} />
       {floats.map((item) => (
         <group key={item.id} position={[item.x, 1.4, item.z]}>

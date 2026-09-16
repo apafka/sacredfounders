@@ -1,4 +1,7 @@
 import { PLAYER_DAMAGE, PLAYER_MAX_HP, WOLF_DAMAGE, WOLF_HP } from "../combat";
+import { enemyDefinition, type EncounterKind } from "../data/enemies";
+import type { PlayerState } from "../types";
+import { TILE, VALLEY_ENCOUNTERS, VALLEY_TILES, worldCenter } from "./layout";
 
 export const STRIKE_RANGE = 42;
 export const DETECT_RANGE = 118;
@@ -25,6 +28,15 @@ export type Wolf = Actor & {
   hitFlash: number;
 };
 
+export type Foe = Wolf & {
+  id: string;
+  kind: EncounterKind;
+  spawnX: number;
+  spawnY: number;
+};
+
+export type Bounds = { minX: number; minY: number; maxX: number; maxY: number };
+
 export function createWolf(x: number, y: number, hp = WOLF_HP): Wolf {
   return {
     x,
@@ -40,6 +52,40 @@ export function createWolf(x: number, y: number, hp = WOLF_HP): Wolf {
   };
 }
 
+export function createFoe(id: string, kind: EncounterKind, x: number, y: number, hp: number): Foe {
+  return { ...createWolf(x, y, hp), id, kind, spawnX: x, spawnY: y };
+}
+
+export function spawnWanderBounds(x: number, y: number, radius = 72, mapBounds?: Bounds): Bounds {
+  const local: Bounds = {
+    minX: x - radius,
+    minY: y - radius * 0.75,
+    maxX: x + radius,
+    maxY: y + radius * 0.75,
+  };
+  if (!mapBounds) return local;
+  return {
+    minX: Math.max(mapBounds.minX, local.minX),
+    minY: Math.max(mapBounds.minY, local.minY),
+    maxX: Math.min(mapBounds.maxX, local.maxX),
+    maxY: Math.min(mapBounds.maxY, local.maxY),
+  };
+}
+
+export function nearestLiving(foes: Foe[], x: number, y: number, range: number): Foe | null {
+  let best: Foe | null = null;
+  let bestDist = range;
+  for (const foe of foes) {
+    if (foe.hp <= 0) continue;
+    const dist = Math.hypot(foe.x - x, foe.y - y);
+    if (dist < bestDist) {
+      best = foe;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
 export function tryStrike(player: Actor, wolf: Actor, damage = PLAYER_DAMAGE): Actor | null {
   if (wolf.hp <= 0 || player.hp <= 0) return null;
   if (Math.hypot(player.x - wolf.x, player.y - wolf.y) >= STRIKE_RANGE) return null;
@@ -51,7 +97,8 @@ export function tickWolf(
   wolf: Wolf,
   dtSec: number,
   rng: () => number = Math.random,
-  bounds?: { minX: number; minY: number; maxX: number; maxY: number },
+  bounds?: Bounds,
+  biteDamage = WOLF_DAMAGE,
 ): { player: Actor; wolf: Wolf; wolfHit?: number } {
   if (wolf.hp <= 0) {
     return { player, wolf: { ...wolf, hp: 0, mode: "dead" } };
@@ -70,9 +117,9 @@ export function tickWolf(
   if (dist <= ATTACK_RANGE) {
     w.mode = "attack";
     if (w.attackCd <= 0) {
-      p.hp = Math.max(0, p.hp - WOLF_DAMAGE);
+      p.hp = Math.max(0, p.hp - biteDamage);
       w.attackCd = WOLF_ATTACK_MS;
-      return { player: p, wolf: w, wolfHit: WOLF_DAMAGE };
+      return { player: p, wolf: w, wolfHit: biteDamage };
     }
     return { player: p, wolf: w };
   }
@@ -106,7 +153,7 @@ export function tickWolf(
   return { player: p, wolf: clampWolf(w, bounds) };
 }
 
-function clampWolf(wolf: Wolf, bounds?: { minX: number; minY: number; maxX: number; maxY: number }): Wolf {
+function clampWolf(wolf: Wolf, bounds?: Bounds): Wolf {
   if (!bounds) return wolf;
   return {
     ...wolf,
@@ -116,3 +163,37 @@ function clampWolf(wolf: Wolf, bounds?: { minX: number; minY: number; maxX: numb
 }
 
 export { PLAYER_MAX_HP, PLAYER_DAMAGE, WOLF_HP, WOLF_DAMAGE };
+
+export function valleyMapBounds(): Bounds {
+  return {
+    minX: TILE + 8,
+    minY: TILE + 8,
+    maxX: TILE * ((VALLEY_TILES[0]?.length ?? 2) - 2),
+    maxY: TILE * (VALLEY_TILES.length - 2),
+  };
+}
+
+export function spawnValleyFoes(player: PlayerState): Foe[] {
+  const saves = player.encounters ?? [];
+  return VALLEY_ENCOUNTERS.map((spot) => {
+    const save = saves.find((item) => item.id === spot.id);
+    const def = enemyDefinition(spot.kind);
+    const pos = worldCenter(spot.col, spot.row);
+    const alive = save ? save.alive : true;
+    const foe = createFoe(spot.id, spot.kind, pos.x, pos.y, def.health);
+    foe.maxHp = def.health;
+    if (!alive) {
+      foe.hp = 0;
+      foe.mode = "dead";
+    } else if (save?.hp) {
+      foe.hp = save.hp;
+    }
+    return foe;
+  });
+}
+
+export function lootVisible(player: PlayerState, id: string): boolean {
+  const save = player.encounters?.find((item) => item.id === id);
+  return Boolean(save?.lootDropped && !save.lootTaken);
+}
+

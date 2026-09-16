@@ -9,8 +9,11 @@ export type WorldEvent =
   | { type: "harvest"; plotId: number }
   | { type: "talk-bren" }
   | { type: "door"; scene: "hearth" | "valley" }
-  | { type: "wolf-down" }
-  | { type: "pickup-pelt" }
+  | { type: "wolf-down"; id?: string }
+  | { type: "pickup-pelt"; id?: string }
+  | { type: "rest-bed" }
+  | { type: "use-potion" }
+  | { type: "respawn-wilderness" }
   | { type: "combat"; you: number }
   | { type: "health"; health: number }
   | { type: "position"; x: number; y: number }

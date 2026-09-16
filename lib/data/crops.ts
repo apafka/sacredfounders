@@ -13,6 +13,8 @@ export type CropDefinition = {
   seedItem: ItemId;
   harvestItem: ItemId;
   harvestAmount: number;
+  /** Seeds returned with the sheaf so the garden can feed Bren again. */
+  seedReturn: number;
   xp: number;
   stages: { at: number; stage: Exclude<CropStage, "empty" | "ready"> }[];
 };
@@ -25,6 +27,7 @@ export const CROPS: Record<CropId, CropDefinition> = {
     seedItem: "wheat_seed",
     harvestItem: "wheat",
     harvestAmount: 1,
+    seedReturn: 1,
     xp: 18,
     stages: [
       { at: 0, stage: "planted" },

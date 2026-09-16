@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthControls } from "./auth-controls";
 import { WorldStage } from "./world-stage";
-import { harvest, pickupPelt, plant, sellWheat, setHealth, setPosition, setScene, wolfFalls } from "@/lib/game-store";
+import { harvest, pickupLoot, plant, restAtBed, sellWheat, setHealth, setPosition, setScene, buyFromBren, usePotion, enemyFalls, wolfFalls, maybeTimerRespawn } from "@/lib/game-store";
 import { createLocalStoragePersistence, mergeSession, toSnapshot } from "@/lib/game/persistence";
 import type { PlayerState } from "@/lib/types";
 
@@ -75,6 +75,18 @@ export function GameShell() {
         setInventoryOpen((open) => !open);
         setDialogueOpen(false);
       }
+      if (event.key === "q" || event.key === "Q") {
+        event.preventDefault();
+        const cur = playerRef.current;
+        if (!cur) return;
+        const next = usePotion(cur);
+        if (!next.ok) {
+          setHint(next.message);
+          return;
+        }
+        commit(next.player, next.message);
+        setToast(next.message);
+      }
       if (event.key === "Escape") {
         setInventoryOpen(false);
         setDialogueOpen(false);
@@ -82,7 +94,7 @@ export function GameShell() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [commit]);
 
   async function enter() {
     if (busy) return;
@@ -103,7 +115,16 @@ export function GameShell() {
       return;
     }
     commit(next.player, next.message, cookie);
-    if (next.message.startsWith("+") || next.message.includes("Pelt") || next.message.includes("Harvested") || next.message.includes("Planted")) {
+    if (
+      next.message.startsWith("+") ||
+      next.message.includes("Pelt") ||
+      next.message.includes("Hide") ||
+      next.message.includes("Harvested") ||
+      next.message.includes("Planted") ||
+      next.message.includes("rested") ||
+      next.message.includes("Blade") ||
+      next.message.includes("Armor")
+    ) {
       setToast(next.message);
     }
   }
@@ -147,13 +168,14 @@ export function GameShell() {
         onToast={setToast}
         onPlant={(plotId) => applyLocal(plant(current(), plotId, "grain"))}
         onHarvest={(plotId) => applyLocal(harvest(current(), plotId))}
-        onSell={() => {
-          applyLocal(sellWheat(current()));
-          setDialogueOpen(false);
-        }}
+        onSell={() => applyLocal(sellWheat(current()))}
+        onBuy={(sku) => applyLocal(buyFromBren(current(), sku))}
+        onRest={() => applyLocal(restAtBed(current()))}
+        onUsePotion={() => applyLocal(usePotion(current()))}
         onDoor={(scene) => applyLocal(setScene(current(), scene))}
-        onWolfDown={() => applyLocal(wolfFalls(current()))}
-        onPickupPelt={() => applyLocal(pickupPelt(current()))}
+        onWolfDown={(id) => applyLocal(id ? enemyFalls(current(), id) : wolfFalls(current()))}
+        onPickupPelt={(id) => applyLocal(pickupLoot(current(), id ?? current().encounters.find((item) => item.lootDropped && !item.lootTaken)?.id ?? "wolf-near"))}
+        onRespawn={() => applyLocal(maybeTimerRespawn(current()))}
         onHealth={(health) => {
           const cur = current();
           if (cur.health === health) return;

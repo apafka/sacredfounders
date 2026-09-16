@@ -7,9 +7,11 @@ import type { PlayerState } from "@/lib/types";
 export function InventoryPanel({
   player,
   onClose,
+  onUsePotion,
 }: {
   player: PlayerState;
   onClose: () => void;
+  onUsePotion?: () => void;
 }) {
   const slots = Array.from({ length: INVENTORY_SIZE }, (_, i) => player.inventory[i] ?? null);
 
@@ -21,15 +23,22 @@ export function InventoryPanel({
           Close
         </button>
       </div>
-      <p className="mt-1 text-sm text-[var(--muted)]">I to toggle. Twenty pockets. What you carry is yours.</p>
+      <p className="mt-1 text-sm text-[var(--muted)]">I to toggle. Click a potion to drink it. Q also drinks.</p>
       <ul className="inv-grid mt-3">
         {slots.map((slot, i) => (
           <li key={i} className="inv-slot">
             {slot ? (
-              <>
-                <span>{ITEMS[slot.itemId].name}</span>
-                <em>{slot.qty}</em>
-              </>
+              slot.itemId === "health_potion" && onUsePotion ? (
+                <button type="button" className="inv-use" onClick={onUsePotion}>
+                  <span>{ITEMS[slot.itemId].name}</span>
+                  <em>{slot.qty} · drink</em>
+                </button>
+              ) : (
+                <>
+                  <span>{ITEMS[slot.itemId].name}</span>
+                  <em>{slot.qty}</em>
+                </>
+              )
             ) : (
               <span className="text-[var(--muted)]">—</span>
             )}

@@ -1,7 +1,15 @@
-export const ITEM_IDS = ["wheat_seed", "wheat", "wolf_pelt"] as const;
+export const ITEM_IDS = [
+  "wheat_seed",
+  "wheat",
+  "wolf_pelt",
+  "dire_hide",
+  "health_potion",
+  "iron_blade",
+  "hide_armor",
+] as const;
 export type ItemId = (typeof ITEM_IDS)[number];
 
-export type ItemType = "seed" | "crop" | "material";
+export type ItemType = "seed" | "crop" | "material" | "consumable" | "gear";
 
 export type ItemDefinition = {
   id: ItemId;
@@ -36,6 +44,38 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     stackable: true,
     maxStack: 20,
     value: 0,
+  },
+  dire_hide: {
+    id: "dire_hide",
+    name: "Dire Hide",
+    type: "material",
+    stackable: true,
+    maxStack: 10,
+    value: 0,
+  },
+  health_potion: {
+    id: "health_potion",
+    name: "Health Potion",
+    type: "consumable",
+    stackable: true,
+    maxStack: 10,
+    value: 5,
+  },
+  iron_blade: {
+    id: "iron_blade",
+    name: "Iron Blade",
+    type: "gear",
+    stackable: false,
+    maxStack: 1,
+    value: 12,
+  },
+  hide_armor: {
+    id: "hide_armor",
+    name: "Hide Armor",
+    type: "gear",
+    stackable: false,
+    maxStack: 1,
+    value: 15,
   },
 };
 
