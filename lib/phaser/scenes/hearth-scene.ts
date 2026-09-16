@@ -131,7 +131,7 @@ export class HearthScene extends Phaser.Scene {
       { spot: HEARTH_SPOTS.fire, job: { kind: "fire" }, radius: TILE },
       { spot: HEARTH_SPOTS.bed, job: { kind: "bed" }, radius: TILE },
       { spot: HEARTH_SPOTS.chest, job: { kind: "chest" }, radius: TILE },
-      { spot: HEARTH_SPOTS.workbench, job: { kind: "workbench" }, radius: TILE },
+      { spot: HEARTH_SPOTS.workbench, job: { kind: "workbench" }, radius: TILE * 1.25 },
       { spot: HEARTH_SPOTS.bren, job: { kind: "bren" }, radius: TILE * 1.15 },
       { spot: HEARTH_SPOTS.door, job: { kind: "door" }, radius: TILE * 1.1 },
     ];

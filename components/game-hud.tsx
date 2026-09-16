@@ -13,6 +13,7 @@ export function GameHud({
   onInventory,
   onUsePotion,
   onEatBread,
+  onBake,
   onRest,
   onSeed,
 }: {
@@ -23,6 +24,7 @@ export function GameHud({
   onInventory: () => void;
   onUsePotion?: () => void;
   onEatBread?: () => void;
+  onBake?: () => void;
   onRest?: () => void;
   onSeed?: (crop: CropId) => void;
 }) {
@@ -30,6 +32,7 @@ export function GameHud({
   const ratio = player.maxHealth > 0 ? hp / player.maxHealth : 0;
   const potions = countItem(player.inventory, "health_potion");
   const bread = countItem(player.inventory, "bread");
+  const wheat = countItem(player.inventory, "wheat");
   const gear = [player.hasSword ? "Blade" : null, player.hasArmor ? "Armor" : null].filter(Boolean).join(" · ");
   const selected = seed ?? "grain";
 
@@ -90,6 +93,11 @@ export function GameHud({
           {player.scene === "hearth" && onRest ? (
             <button className="btn-tiny" type="button" onClick={onRest}>
               Rest
+            </button>
+          ) : null}
+          {player.scene === "hearth" && onBake ? (
+            <button className="btn-tiny" type="button" disabled={wheat < 1} onClick={onBake}>
+              Bake bread{wheat > 0 ? ` (${wheat})` : ""}
             </button>
           ) : null}
           {bread > 0 && onEatBread ? (

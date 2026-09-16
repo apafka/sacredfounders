@@ -203,6 +203,7 @@ export function WorldStage({
           onInventory={() => onToggleInventory()}
           onUsePotion={onUsePotion}
           onEatBread={onEatBread}
+          onBake={onBake}
           onRest={onRest}
           onSeed={onSeed}
         />
@@ -245,6 +246,7 @@ export function WorldStage({
         onInventory={() => onToggleInventory()}
         onUsePotion={onUsePotion}
         onEatBread={onEatBread}
+        onBake={onBake}
         onRest={onRest}
         onSeed={onSeed}
       />
