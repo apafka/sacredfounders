@@ -174,7 +174,7 @@ export function WorldStage({
           onPickupPelt={onPickupPelt}
           onRest={onRest}
         />
-        <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} />
+        <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} onRest={onRest} />
         {inventoryOpen ? <InventoryPanel player={player} onClose={() => onToggleInventory(false)} onUsePotion={onUsePotion} /> : null}
         {dialogueOpen ? (
           <DialoguePanel player={player} onSell={onSell} onBuy={onBuy} onClose={() => onToggleDialogue(false)} />
@@ -192,7 +192,7 @@ export function WorldStage({
           <IsoCanvas player={player} seed="grain" busy={busy} onEvent={onEvent} />
         )}
       </CanvasGuard>
-      <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} />
+      <GameHud player={player} toast={toast} hint={hint} onInventory={() => onToggleInventory()} onUsePotion={onUsePotion} onRest={onRest} />
       {inventoryOpen ? (
         <>
           <button className="hud-backdrop" type="button" aria-label="Close pack" onClick={() => onToggleInventory(false)} />

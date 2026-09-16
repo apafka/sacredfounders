@@ -9,12 +9,14 @@ export function GameHud({
   hint,
   onInventory,
   onUsePotion,
+  onRest,
 }: {
   player: PlayerState;
   toast: string;
   hint: string;
   onInventory: () => void;
   onUsePotion?: () => void;
+  onRest?: () => void;
 }) {
   const hp = Math.max(0, player.health);
   const ratio = player.maxHealth > 0 ? hp / player.maxHealth : 0;
@@ -54,6 +56,11 @@ export function GameHud({
       <div className="hud-bottom">
         {hint ? <p className="hud-hint">{hint}</p> : <p className="hud-hint">WASD / click. E interact. I pack. Q potion.</p>}
         <div className="flex flex-wrap gap-2">
+          {player.scene === "hearth" && onRest ? (
+            <button className="btn-tiny" type="button" onClick={onRest}>
+              Rest
+            </button>
+          ) : null}
           {potions > 0 && onUsePotion ? (
             <button className="btn-tiny" type="button" onClick={onUsePotion}>
               Drink potion ({potions})
