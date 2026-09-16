@@ -63,7 +63,7 @@ function InstancedBoxes({
   }, [cells, y]);
   if (cells.length === 0) return null;
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, cells.length]} receiveShadow castShadow={castShadow}>
+    <instancedMesh ref={ref} args={[undefined, undefined, cells.length]} receiveShadow castShadow={castShadow} raycast={() => undefined}>
       <boxGeometry args={size} />
       <meshStandardMaterial color={color} roughness={0.9} metalness={0} />
     </instancedMesh>
