@@ -162,11 +162,11 @@ export function HearthWorld({
       <InstancedBoxes cells={walls} color={PALETTE.wall} size={[0.92, 1.2, 0.92]} y={0.6} castShadow />
       {roof ? (
         <group position={[roof.cx, 1.85, roof.cz]}>
-          <mesh rotation={[0.48, 0, 0]} position={[0, 0.08, -roof.d * 0.22]} castShadow>
+          <mesh rotation={[0.48, 0, 0]} position={[0, 0.08, -roof.d * 0.22]} castShadow raycast={() => undefined}>
             <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roof} roughness={0.85} />
           </mesh>
-          <mesh rotation={[-0.48, 0, 0]} position={[0, 0.08, roof.d * 0.22]} castShadow>
+          <mesh rotation={[-0.48, 0, 0]} position={[0, 0.08, roof.d * 0.22]} castShadow raycast={() => undefined}>
             <boxGeometry args={[roof.w, 0.1, roof.d * 0.58]} />
             <meshStandardMaterial color={PALETTE.roofShadow} roughness={0.85} />
           </mesh>
@@ -200,36 +200,44 @@ export function HearthWorld({
       })}
 
       <group
+        position={[fire.x, 0, fire.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "fire" });
         }}
       >
-        <HearthFire position={[fire.x, 0, fire.z]} />
+        <HearthFire position={[0, 0, 0]} />
+        <ClickVolume size={[1.4, 2.0, 1.4]} y={0.9} />
       </group>
       <group
+        position={[bed.x, 0, bed.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "bed" });
         }}
       >
-        <BedProp position={[bed.x, 0, bed.z]} />
+        <BedProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.7, 2.5, 1.7]} y={1.15} />
       </group>
       <group
+        position={[chest.x, 0, chest.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "chest" });
         }}
       >
-        <ChestProp position={[chest.x, 0, chest.z]} />
+        <ChestProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.4, 2.0, 1.4]} y={0.95} />
       </group>
       <group
+        position={[bench.x, 0, bench.z]}
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onJob({ kind: "workbench" });
         }}
       >
-        <BenchProp position={[bench.x, 0, bench.z]} />
+        <BenchProp position={[0, 0, 0]} />
+        <ClickVolume size={[1.5, 2.0, 1.4]} y={0.95} />
       </group>
       <group
         position={[bren.x, 0, bren.z]}
@@ -254,7 +262,7 @@ export function HearthWorld({
 
       <WorldLabel text="Garden" position={[garden.x, 1.15, garden.z]} />
       <WorldLabel text="Fire" position={[fire.x, 1.35, fire.z]} />
-      <WorldLabel text="Bed" position={[bed.x, 0.85, bed.z]} />
+      <WorldLabel text="Bed" position={[bed.x, 1.35, bed.z]} />
       <WorldLabel text="Chest" position={[chest.x, 0.85, chest.z]} />
       <WorldLabel text="Workbench" position={[bench.x, 0.85, bench.z]} />
       <WorldLabel text="Old Bren" position={[bren.x, 1.45, bren.z]} />

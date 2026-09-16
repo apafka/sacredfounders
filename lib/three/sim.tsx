@@ -65,10 +65,10 @@ function nearestHearthJob(x: number, y: number): HearthJob | null {
     if (Math.hypot(x - pos.x, y - pos.y) < TILE) return { kind: "plot", plotId: plot.id };
   }
   const furniture: { kind: Exclude<HearthJob["kind"], "plot">; radius: number }[] = [
-    { kind: "fire", radius: TILE },
-    { kind: "bed", radius: TILE },
-    { kind: "chest", radius: TILE },
-    { kind: "workbench", radius: TILE },
+    { kind: "fire", radius: TILE * 1.2 },
+    { kind: "bed", radius: TILE * 1.35 },
+    { kind: "chest", radius: TILE * 1.2 },
+    { kind: "workbench", radius: TILE * 1.2 },
     { kind: "bren", radius: TILE * 1.8 },
     { kind: "door", radius: TILE * 1.1 },
   ];
