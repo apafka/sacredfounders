@@ -1,4 +1,5 @@
 import type { ItemId } from "./data/items";
+import type { EncounterKind } from "./data/enemies";
 import type { SkillId, SkillState } from "./game/skills";
 import type { InventorySlot } from "./game/inventory";
 
@@ -24,6 +25,15 @@ export type WolfSave = {
   peltTaken: boolean;
 };
 
+export type EncounterSave = {
+  id: string;
+  kind: EncounterKind;
+  alive: boolean;
+  hp: number;
+  lootDropped: boolean;
+  lootTaken: boolean;
+};
+
 export type PlayerState = {
   id: string;
   name: string;
@@ -40,6 +50,7 @@ export type PlayerState = {
   xp: number;
   level: number;
   hasSword: boolean;
+  hasArmor: boolean;
   strikeDamage: number;
   lastFishAt: number;
   seeds: Record<CropId, number>;
@@ -49,6 +60,8 @@ export type PlayerState = {
   plots: Plot[];
   position: { x: number; y: number } | null;
   wolf: WolfSave;
+  encounters: EncounterSave[];
+  wildernessWipedAt: number | null;
   whisper: string;
   log: LogEntry[];
   walletAddress: string;
@@ -82,4 +95,4 @@ export const GOODS_META: Record<GoodsId, { name: string; mark: string }> = {
   loaf: { name: "Loaf", mark: "L" },
 };
 
-export type { ItemId, InventorySlot, SkillId, SkillState };
+export type { ItemId, InventorySlot, SkillId, SkillState, EncounterKind };

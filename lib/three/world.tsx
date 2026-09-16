@@ -12,6 +12,7 @@ import {
   HEARTH_TILES,
   VALLEY_SPOTS,
   VALLEY_TILES,
+  VALLEY_ENCOUNTERS,
   VALLEY_TREES,
   isWalkable,
 } from "@/lib/phaser/layout";
@@ -262,7 +263,14 @@ export function HearthWorld({
   );
 }
 
-export type ValleyJob = { kind: "door" } | { kind: "wolf" } | { kind: "pelt" } | { kind: "tracks" } | { kind: "scale" } | { kind: "carving" } | { kind: "walk"; x: number; z: number };
+export type ValleyJob =
+  | { kind: "door" }
+  | { kind: "wolf"; id?: string }
+  | { kind: "pelt"; id?: string }
+  | { kind: "tracks" }
+  | { kind: "scale" }
+  | { kind: "carving" }
+  | { kind: "walk"; x: number; z: number };
 
 export function ValleyWorld({
   onWalk,
@@ -295,7 +303,8 @@ export function ValleyWorld({
   const tracks = tileToWorld(VALLEY_SPOTS.tracks.col, VALLEY_SPOTS.tracks.row);
   const scale = tileToWorld(VALLEY_SPOTS.scale.col, VALLEY_SPOTS.scale.row);
   const carving = tileToWorld(VALLEY_SPOTS.carving.col, VALLEY_SPOTS.carving.row);
-  const edge = tileToWorld(10, 4);
+  const edge = tileToWorld(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
+  const deep = tileToWorld(VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.col ?? 10, VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.row ?? 4);
 
   return (
     <group>
@@ -345,6 +354,7 @@ export function ValleyWorld({
       <WorldLabel text="Carving" position={[carving.x, 0.85, carving.z]} />
       <WorldLabel text="Home" position={[door.x, 1.7, door.z]} />
       <WorldLabel text="Forest edge" position={[edge.x, 1.3, edge.z]} />
+      <WorldLabel text="Deep woods" position={[deep.x, 1.45, deep.z]} />
     </group>
   );
 }

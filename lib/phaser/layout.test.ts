@@ -12,6 +12,7 @@ import {
   TILESET_KEYS,
   TILE_CHARS,
   TILE_INDEX,
+  VALLEY_ENCOUNTERS,
   VALLEY_SPOTS,
   VALLEY_TILES,
   VIEW_COLS,
@@ -76,7 +77,7 @@ test("hearth has three garden plots, cottage furniture pads, baker, and a door",
   assert.equal(tileAt(HEARTH_TILES, HEARTH_SPOTS.spawn.col, HEARTH_SPOTS.spawn.row), ".");
 });
 
-test("valley path reaches one wolf pad, presence markers, and a door home", () => {
+test("valley path reaches a wolf pack, a deep dire wolf, presence markers, and a door home", () => {
   for (const spot of Object.values(VALLEY_SPOTS)) {
     assert.ok(inBounds(spot.col, spot.row, COLS, VALLEY_TILES.length));
     assert.ok(isWalkable(tileAt(VALLEY_TILES, spot.col, spot.row)));
@@ -88,6 +89,19 @@ test("valley path reaches one wolf pad, presence markers, and a door home", () =
   assert.ok(chars.includes("D"));
   assert.ok(isDoorTile(tileAt(VALLEY_TILES, VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row)));
   assert.equal(tileAt(VALLEY_TILES, VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row), "=");
+  assert.ok(VALLEY_TILES.length >= 32, "valley should run further from home than the old forest-edge slice");
+  assert.equal(VALLEY_ENCOUNTERS.length, 4);
+  assert.equal(VALLEY_ENCOUNTERS.filter((item) => item.kind === "wolf").length, 3);
+  assert.equal(VALLEY_ENCOUNTERS.some((item) => item.kind === "dire"), true);
+  for (const foe of VALLEY_ENCOUNTERS) {
+    assert.ok(inBounds(foe.col, foe.row, COLS, VALLEY_TILES.length));
+    assert.ok(isWalkable(tileAt(VALLEY_TILES, foe.col, foe.row)));
+    assert.ok(foe.row < VALLEY_SPOTS.door.row, "enemies stand further into the woods than the home door");
+  }
+  const dire = VALLEY_ENCOUNTERS.find((item) => item.kind === "dire");
+  const nearestWolf = Math.max(...VALLEY_ENCOUNTERS.filter((item) => item.kind === "wolf").map((item) => item.row));
+  assert.ok(dire && dire.row < nearestWolf, "dire wolf is deeper than the pack");
+  assert.ok(VALLEY_SPOTS.door.row - nearestWolf >= 6, "first wolf is a walk from the hearth door");
 });
 
 test("walls collide; path, grass, floor, forest, and door do not", () => {

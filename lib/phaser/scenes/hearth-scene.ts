@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { plotStage } from "@/lib/crops";
 import { CROP_META } from "@/lib/types";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
-import { bindClickToMove, bindWalkKeys, burst, createGround, followActor, label, readAxis } from "../draw-map";
+import { bindClickToMove, bindWalkKeys, burst, createGround, floatText, followActor, label, readAxis } from "../draw-map";
 import {
   HEARTH_PLOTS,
   HEARTH_SPOTS,
@@ -231,7 +231,16 @@ export class HearthScene extends Phaser.Scene {
       return;
     }
     if (job.kind === "bed") {
-      bridge.emit({ type: "hint", text: "Your bed. The day is young." });
+      const pilgrim = bridge.getPlayer();
+      const missing = pilgrim.maxHealth - pilgrim.health;
+      if (missing > 0) {
+        floatText(this, this.pilgrim.x, this.pilgrim.y - 18, `+${missing} HP`, "#6d7a4e");
+        burst(this, this.pilgrim.x, this.pilgrim.y, 0x6d7a4e);
+      } else {
+        floatText(this, this.pilgrim.x, this.pilgrim.y - 18, "Already rested", "#c4a35a");
+        bridge.emit({ type: "hint", text: "You lie down. You are already rested." });
+      }
+      bridge.emit({ type: "rest-bed" });
       return;
     }
     if (job.kind === "chest") {

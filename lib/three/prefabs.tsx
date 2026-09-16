@@ -80,10 +80,20 @@ export function BrenMesh() {
   );
 }
 
-export function WolfMesh({ tinted }: { tinted?: "hit" | "agro" | "dead" | null }) {
-  const color = tinted === "hit" ? PALETTE.cream : tinted === "agro" ? "#8a4a32" : tinted === "dead" ? "#2c241c" : PALETTE.wolfDark;
+export function WolfMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | null; kind?: "wolf" | "dire" }) {
+  const color =
+    tinted === "hit"
+      ? PALETTE.cream
+      : tinted === "agro"
+        ? "#8a4a32"
+        : tinted === "dead"
+          ? "#2c241c"
+          : kind === "dire"
+            ? "#241810"
+            : PALETTE.wolfDark;
+  const scale = kind === "dire" ? 1.45 : 1;
   return (
-    <group>
+    <group scale={scale}>
       <mesh position={[0, 0.28, 0]} castShadow>
         <boxGeometry args={[0.92, 0.38, 0.44]} />
         <meshStandardMaterial color={color} {...mat} />
@@ -246,11 +256,11 @@ export function WheatStalk({ stage }: { stage: "planted" | "sprout" | "growing" 
   );
 }
 
-export function PeltDrop({ position }: { position: [number, number, number] }) {
+export function PeltDrop({ position, dire = false }: { position: [number, number, number]; dire?: boolean }) {
   return (
     <mesh position={position} castShadow rotation={[-0.4, 0.4, 0.1]}>
-      <boxGeometry args={[0.55, 0.08, 0.4]} />
-      <meshStandardMaterial color="#5a3a28" {...mat} />
+      <boxGeometry args={dire ? [0.7, 0.1, 0.5] : [0.55, 0.08, 0.4]} />
+      <meshStandardMaterial color={dire ? "#3d2a1c" : "#5a3a28"} {...mat} />
     </mesh>
   );
 }

@@ -1,5 +1,8 @@
+import { VALLEY_ENCOUNTERS } from "@/lib/data/enemies";
 import type { CropId } from "@/lib/types";
 import type { CropStage } from "@/lib/crops";
+
+export { VALLEY_ENCOUNTERS };
 
 /** Top-down tile size. Swap art at this resolution (or 16px and scale 2x). */
 export const TILE = 32;
@@ -49,18 +52,31 @@ const HEARTH_CORE = [
 const VALLEY_CORE = [
   "########################",
   "#TTTTTTTTTTTTTTTTTTTTTT#",
-  "#TTTTT========TTTTTTTTT#",
+  "#TTTTTTTTTTTTTTTTTTTTTT#",
   "#TTTTT========TTTTTTTTT#",
   "#TTTTT========TTTTTTTTT#",
   "#TTTTTT======TTTTTTTTTT#",
   "#TTTTTTT====TTTTTTTTTTT#",
+  "#TTTTTT======TTTTTTTTTT#",
+  "#TTTTTT====TTTTTTTTTTTT#",
+  "#TTTTTT====TTTTTTTTTTTT#",
+  "#TTTTT========TTTTTTTTT#",
+  "#TTTTT========TTTTTTTTT#",
+  "#TTTTTT======TTTTTTTTTT#",
+  "#TTTTT========TTTTTTTTT#",
+  "#TTTTTTT====TTTTTTTTTTT#",
   "#,,,,,,,,====,,,,,,,,,,#",
+  "#,,,,,,,,,====,,,,,,,,,#",
+  "#,,,,,,,,,,====,,,,,,,,#",
   "#,,,,,,,,,====,,,,,,,,,#",
   "#,,,,,,,,,,====,,,,,,,,#",
   "#,,,,,,,,,,,===,,,,,,,,#",
   "#,,,,,,,,,,,,==,,,,,,,,#",
   "#,,,,,,,,,,,,==,,,,,,,,#",
   "#,,,,,,,,,,,,,,=,,,,,,,#",
+  "#,,,,,,,,,,,,,,==,,,,,,#",
+  "#,,,,,,,,,,,,,,,=,,,,,,#",
+  "#,,,,,,,,,,,,,,,==,,,,,#",
   "#,,,,,,,,,,,,,,==D.....#",
   "#,,,,,,,,,,,,,,,,,,,,,,#",
   "#,,,,,,,,,,,,,,,,,,,,,,#",
@@ -98,7 +114,7 @@ export function expandTileMap(
 }
 
 export const HEARTH_TILES = expandTileMap(HEARTH_CORE, COLS, 22);
-export const VALLEY_TILES = expandTileMap(VALLEY_CORE, COLS, 24);
+export const VALLEY_TILES = expandTileMap(VALLEY_CORE, COLS, 38, "T");
 
 export const HEARTH_ROWS = HEARTH_TILES.length;
 export const VALLEY_ROWS = VALLEY_TILES.length;
@@ -154,12 +170,12 @@ export const HEARTH_SPOTS = {
 } as const;
 
 export const VALLEY_SPOTS = {
-  spawn: { col: 16, row: 13 },
-  wolf: { col: 10, row: 5 },
-  door: { col: 17, row: 14 },
-  tracks: { col: 12, row: 9 },
+  spawn: { col: 16, row: 26 },
+  wolf: { col: VALLEY_ENCOUNTERS[0].col, row: VALLEY_ENCOUNTERS[0].row },
+  door: { col: 17, row: 27 },
+  tracks: { col: 12, row: 19 },
   scale: { col: 8, row: 6 },
-  carving: { col: 10, row: 11 },
+  carving: { col: 14, row: 21 },
 } as const;
 
 export const VALLEY_TREES: Spot[] = [
@@ -177,6 +193,14 @@ export const VALLEY_TREES: Spot[] = [
   { col: 24, row: 6 },
   { col: 26, row: 2 },
   { col: 28, row: 4 },
+  { col: 3, row: 8 },
+  { col: 21, row: 8 },
+  { col: 5, row: 11 },
+  { col: 19, row: 10 },
+  { col: 2, row: 14 },
+  { col: 22, row: 12 },
+  { col: 27, row: 9 },
+  { col: 29, row: 15 },
 ];
 
 export function tileAt(map: readonly string[], col: number, row: number): string {

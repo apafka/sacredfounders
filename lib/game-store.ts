@@ -1,10 +1,30 @@
-import { PLAYER_DAMAGE, PLAYER_MAX_HP, SWORD_COST, xpForKill, type BeastKind } from "./combat";
+import {
+  ARMOR_COST,
+  PLAYER_DAMAGE,
+  PLAYER_MAX_HP,
+  POTION_COST,
+  POTION_HEAL,
+  RESPAWN_MS,
+  SWORD_COST,
+  SWORD_DAMAGE,
+  playerStrikeDamage,
+  type BeastKind,
+} from "./combat";
 import { CROPS } from "./data/crops";
-import { BREN } from "./data/npcs";
+import { enemyDefinition } from "./data/enemies";
+import { BREN, type ShopSku } from "./data/npcs";
+import type { ItemId } from "./data/items";
 import { plotReady } from "./crops";
 import { addItem, countItem, emptyInventory, removeItem } from "./game/inventory";
 import { emptySkills, grantXp } from "./game/skills";
-import type { ClassId, CropId, GoodsId, PlayerState } from "./types";
+import {
+  allEncountersDown,
+  ensureEncounters,
+  freshEncounters,
+  mirrorWolf,
+  shouldTimerRespawn,
+} from "./game/wilderness";
+import type { ClassId, CropId, EncounterSave, GoodsId, PlayerState } from "./types";
 import { BREN_PRICES, GOODS_IDS } from "./types";
 
 export type Result = { player: PlayerState; ok: boolean; message: string };
@@ -67,6 +87,7 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     xp: 0,
     level: 1,
     hasSword: false,
+    hasArmor: false,
     strikeDamage: PLAYER_DAMAGE,
     lastFishAt: 0,
     seeds: { grain: 3, root: 0, herb: 0 },
@@ -75,7 +96,9 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     skills: emptySkills(),
     plots: Array.from({ length: 3 }, (_, plotId) => ({ id: plotId, crop: null, plantedAt: null })),
     position: null,
-    wolf: { alive: true, hp: 12, peltDropped: false, peltTaken: false },
+    encounters: freshEncounters(),
+    wolf: mirrorWolf(freshEncounters()),
+    wildernessWipedAt: null,
     whisper: "The fire kept. The garden is yours. The door waits whenever you do.",
     log: [{ at: now, text: "You wake at the hearth. This is home." }],
     walletAddress: sessionWallet(id),
@@ -247,69 +270,201 @@ export function cookLoaf(player: PlayerState, now = Date.now()): Result {
 }
 
 export function setScene(player: PlayerState, scene: PlayerState["scene"], now = Date.now()): Result {
+  let next: PlayerState = { ...player, scene, position: null };
+  if (player.scene === "valley" && scene === "hearth") {
+    next = respawnWilderness(next);
+    return {
+      player: log(next, "The hearth takes you back. The valley will not stay empty.", now),
+      ok: true,
+      message: "The hearth takes you back.",
+    };
+  }
   const text = scene === "valley" ? "The path leans toward the trees." : "The hearth takes you back.";
   return {
-    player: log({ ...player, scene, position: null }, text, now),
+    player: log(next, text, now),
     ok: true,
     message: text,
   };
 }
 
-export function buySword(player: PlayerState, now = Date.now()): Result {
-  if (player.hasSword) return { player, ok: false, message: "You already carry a blade." };
-  if (player.coins < SWORD_COST) return { player, ok: false, message: `Old Bren asks ${SWORD_COST} gold.` };
+export function respawnWilderness(player: PlayerState): PlayerState {
+  const encounters = freshEncounters();
+  return {
+    ...player,
+    encounters,
+    wolf: mirrorWolf(encounters),
+    wildernessWipedAt: null,
+  };
+}
+
+export function maybeTimerRespawn(player: PlayerState, now = Date.now()): Result {
+  if (player.scene !== "valley") return { player, ok: false, message: "The valley is through the door." };
+  if (!shouldTimerRespawn(player.wildernessWipedAt, now, RESPAWN_MS)) {
+    return { player, ok: false, message: "The woods still hold their dead." };
+  }
+  const next = log(respawnWilderness(player), "The pack answers again from the trees.", now);
+  return { player: next, ok: true, message: "The pack returns." };
+}
+
+export function restAtBed(player: PlayerState, now = Date.now()): Result {
+  if (player.scene !== "hearth") return { player, ok: false, message: "Your bed is at the hearth." };
+  if (player.health >= player.maxHealth) {
+    return {
+      player: log({ ...player, whisper: "The bed knows you are already whole." }, "You lie down. You are already rested.", now),
+      ok: true,
+      message: "Already rested.",
+    };
+  }
+  const healed = player.maxHealth - player.health;
   return {
     player: log(
-      { ...player, coins: player.coins - SWORD_COST, hasSword: true, strikeDamage: PLAYER_DAMAGE },
-      `A blade for ${SWORD_COST} gold.`,
+      { ...player, health: player.maxHealth, whisper: "Sleep takes the ache." },
+      `You rest. +${healed} HP.`,
       now,
     ),
     ok: true,
-    message: "Blade in hand.",
+    message: `+${healed} HP · rested`,
+  };
+}
+
+function grantGear(player: PlayerState, itemId: ItemId): PlayerState | null {
+  if (countItem(player.inventory, itemId) > 0) return player;
+  const nextInv = addItem(player.inventory, itemId, 1);
+  if (!nextInv) return null;
+  return { ...player, inventory: nextInv };
+}
+
+export function buyFromBren(player: PlayerState, sku: ShopSku, now = Date.now()): Result {
+  if (sku === "potion") return buyPotion(player, now);
+  if (sku === "sword") return buySword(player, now);
+  if (sku === "armor") return buyArmor(player, now);
+  return { player, ok: false, message: "Bren shakes his head." };
+}
+
+export function buyPotion(player: PlayerState, now = Date.now()): Result {
+  if (player.coins < POTION_COST) return { player, ok: false, message: `Old Bren asks ${POTION_COST} gold.` };
+  const nextInv = addItem(player.inventory, "health_potion", 1);
+  if (!nextInv) return { player, ok: false, message: "Inventory is full." };
+  const next = withMirrors(
+    log(
+      { ...player, inventory: nextInv, coins: player.coins - POTION_COST, whisper: BREN.shop },
+      `A potion for ${POTION_COST} gold.`,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: `+Health Potion · −${POTION_COST} Gold` };
+}
+
+export function buySword(player: PlayerState, now = Date.now()): Result {
+  if (player.hasSword) return { player, ok: false, message: "You already carry a blade." };
+  if (player.coins < SWORD_COST) return { player, ok: false, message: `Old Bren asks ${SWORD_COST} gold.` };
+  const geared = grantGear({ ...player, coins: player.coins - SWORD_COST, hasSword: true, strikeDamage: SWORD_DAMAGE }, "iron_blade");
+  if (!geared) return { player, ok: false, message: "Inventory is full." };
+  return {
+    player: withMirrors(log(geared, `A blade for ${SWORD_COST} gold. Your strike hits harder.`, now)),
+    ok: true,
+    message: `+Iron Blade · −${SWORD_COST} Gold`,
+  };
+}
+
+export function buyArmor(player: PlayerState, now = Date.now()): Result {
+  if (player.hasArmor) return { player, ok: false, message: "You already wear a hide coat." };
+  if (player.coins < ARMOR_COST) return { player, ok: false, message: `Old Bren asks ${ARMOR_COST} gold.` };
+  const geared = grantGear({ ...player, coins: player.coins - ARMOR_COST, hasArmor: true }, "hide_armor");
+  if (!geared) return { player, ok: false, message: "Inventory is full." };
+  return {
+    player: withMirrors(log(geared, `Hide armor for ${ARMOR_COST} gold. Bites land softer.`, now)),
+    ok: true,
+    message: `+Hide Armor · −${ARMOR_COST} Gold`,
+  };
+}
+
+export function usePotion(player: PlayerState, now = Date.now()): Result {
+  if (player.health >= player.maxHealth) return { player, ok: false, message: "You are already whole." };
+  const nextInv = removeItem(player.inventory, "health_potion", 1);
+  if (!nextInv) return { player, ok: false, message: "No potion." };
+  const healed = Math.min(POTION_HEAL, player.maxHealth - player.health);
+  const next = withMirrors(
+    log(
+      { ...player, inventory: nextInv, health: player.health + healed },
+      `The potion bites warm. +${healed} HP.`,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: `+${healed} HP` };
+}
+
+function withEncounters(player: PlayerState, encounters: EncounterSave[]): PlayerState {
+  return {
+    ...player,
+    encounters,
+    wolf: mirrorWolf(encounters),
+    wildernessWipedAt: allEncountersDown(encounters) ? (player.wildernessWipedAt ?? Date.now()) : null,
+  };
+}
+
+export function enemyFalls(player: PlayerState, encounterId: string, now = Date.now()): Result {
+  if (player.scene !== "valley") return { player, ok: false, message: "The pack is through the door." };
+  const encounters = player.encounters.length ? player.encounters : ensureEncounters(null, player.wolf);
+  const index = encounters.findIndex((item) => item.id === encounterId);
+  if (index < 0) return { player, ok: false, message: "Nothing there to fall." };
+  const target = encounters[index];
+  if (!target.alive && target.lootDropped) {
+    return { player: withEncounters(player, encounters), ok: true, message: "Already still." };
+  }
+  const kind = target.kind;
+  const nextEncounters = encounters.map((item, i) =>
+    i === index ? { ...item, alive: false, hp: 0, lootDropped: true } : item,
+  );
+  const name = enemyDefinition(kind).name;
+  const next = withEncounters(
+    {
+      ...player,
+      wolves: player.wolves + (target.alive ? 1 : 0),
+    },
+    nextEncounters,
+  );
+  return {
+    player: log(next, `${name} falls. Something in the grass.`, now),
+    ok: true,
+    message: `${name} falls.`,
   };
 }
 
 export function wolfFalls(player: PlayerState, now = Date.now()): Result {
-  if (player.scene !== "valley") return { player, ok: false, message: "The wolf is through the door." };
-  if (!player.wolf.alive && player.wolf.peltDropped) {
-    return { player, ok: true, message: "The wolf already lies still." };
-  }
-  return {
-    player: log(
-      {
-        ...player,
-        wolves: player.wolves + (player.wolf.alive ? 1 : 0),
-        wolf: { ...player.wolf, alive: false, hp: 0, peltDropped: true },
-      },
-      "The wolf falls. A pelt in the grass.",
-      now,
-    ),
-    ok: true,
-    message: "The wolf falls.",
-  };
+  const id = player.encounters[0]?.id ?? "wolf-near";
+  return enemyFalls(player, id, now);
 }
 
-export function pickupPelt(player: PlayerState, now = Date.now()): Result {
-  if (player.wolf.peltTaken) return { player, ok: false, message: "The pelt is already yours." };
-  if (player.wolf.alive || !player.wolf.peltDropped) {
-    return { player, ok: false, message: "No pelt on the ground." };
-  }
-  const nextInv = addItem(player.inventory, "wolf_pelt", 1);
+export function pickupLoot(player: PlayerState, encounterId: string, now = Date.now()): Result {
+  const encounters = player.encounters.length ? player.encounters : ensureEncounters(null, player.wolf);
+  const index = encounters.findIndex((item) => item.id === encounterId);
+  if (index < 0) return { player, ok: false, message: "No pelt on the ground." };
+  const target = encounters[index];
+  if (target.lootTaken) return { player, ok: false, message: "That prize is already yours." };
+  if (target.alive || !target.lootDropped) return { player, ok: false, message: "No pelt on the ground." };
+  const drop = enemyDefinition(target.kind).drops[0];
+  if (!drop) return { player, ok: false, message: "Nothing to take." };
+  const nextInv = addItem(player.inventory, drop.itemId, drop.qty);
   if (!nextInv) return { player, ok: false, message: "Inventory is full." };
-  const gained = grantXp(player.skills, "combat", xpForKill("pack"));
+  const xp = enemyDefinition(target.kind).xp;
+  const gained = grantXp(player.skills, "combat", xp);
+  const nextEncounters = encounters.map((item, i) => (i === index ? { ...item, lootDropped: false, lootTaken: true } : item));
+  const label = drop.itemId === "dire_hide" ? "Dire Hide" : "Wolf Pelt";
   const next = withMirrors(
     log(
-      {
-        ...player,
-        inventory: nextInv,
-        skills: gained.skills,
-        wolf: { ...player.wolf, peltDropped: false, peltTaken: true },
-      },
-      `Wolf Pelt acquired. +${xpForKill("pack")} Combat XP${gained.leveled ? `. Combat ${gained.skills.combat.level}.` : "."}`,
+      withEncounters({ ...player, inventory: nextInv, skills: gained.skills }, nextEncounters),
+      `${label} acquired. +${xp} Combat XP${gained.leveled ? `. Combat ${gained.skills.combat.level}.` : "."}`,
       now,
     ),
   );
-  return { player: next, ok: true, message: "Wolf Pelt acquired." };
+  return { player: next, ok: true, message: `${label} acquired.` };
+}
+
+export function pickupPelt(player: PlayerState, now = Date.now()): Result {
+  const dropped = player.encounters.find((item) => item.lootDropped && !item.lootTaken);
+  const id = dropped?.id ?? player.encounters[0]?.id ?? "wolf-near";
+  return pickupLoot(player, id, now);
 }
 
 /** Legacy name: a kill no longer pays gold. It leaves a pelt. */
@@ -342,11 +497,16 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
       ? raw.plots.slice(0, 3).map((plot, id) => ({ id, crop: plot.crop, plantedAt: plot.plantedAt }))
       : Array.from({ length: 3 }, (_, id) => ({ id, crop: null, plantedAt: null }));
   const skills = raw.skills ?? emptySkills();
+  const hasSword = Boolean(raw.hasSword) || countItem(inventory, "iron_blade") > 0;
+  const hasArmor = Boolean(raw.hasArmor) || countItem(inventory, "hide_armor") > 0;
+  const encounters = ensureEncounters(raw.encounters, raw.wolf);
   return withMirrors({
     ...raw,
     health: raw.health ?? PLAYER_MAX_HP,
     maxHealth: raw.maxHealth ?? PLAYER_MAX_HP,
-    strikeDamage: raw.strikeDamage ?? PLAYER_DAMAGE,
+    hasSword,
+    hasArmor,
+    strikeDamage: playerStrikeDamage(hasSword),
     inventory,
     skills: {
       farming: skills.farming ?? { xp: 0, level: 1 },
@@ -354,7 +514,9 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
     },
     plots,
     position: raw.position ?? null,
-    wolf: raw.wolf ?? { alive: true, hp: 12, peltDropped: false, peltTaken: false },
+    encounters,
+    wolf: mirrorWolf(encounters),
+    wildernessWipedAt: raw.wildernessWipedAt ?? null,
     seeds: {
       grain: raw.seeds?.grain ?? 0,
       root: raw.seeds?.root ?? 0,

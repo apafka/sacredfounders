@@ -27,6 +27,7 @@ export const ART_PACK_FILES: Record<string, string> = {
   "crop-grain-ready": "grain-ready.png",
   "sprite-pilgrim": "pilgrim.png",
   "sprite-wolf": "wolf.png",
+  "sprite-dire": "dire.png",
   "sprite-bren": "bren.png",
   "sprite-bed": "bed.png",
   "sprite-fire": "fire.png",
@@ -38,6 +39,7 @@ export const ART_PACK_FILES: Record<string, string> = {
   "sprite-scale": "scale.png",
   "sprite-carving": "carving.png",
   "sprite-pelt": "pelt.png",
+  "sprite-hide": "hide.png",
   "sprite-marker": "marker.png",
 };
 

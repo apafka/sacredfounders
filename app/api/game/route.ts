@@ -2,20 +2,26 @@ import { NextResponse } from "next/server";
 import { chainStatus } from "@/lib/chain";
 import { isCropId, isGoodsId } from "@/lib/crops";
 import {
+  buyFromBren,
   buySword,
   chooseClass,
   cookLoaf,
   createPlayer,
+  enemyFalls,
   fishCreek,
   harvest,
   hydratePlayer,
+  maybeTimerRespawn,
+  pickupLoot,
   pickupPelt,
   plant,
+  restAtBed,
   sellToBren,
   sellWheat,
   setHealth,
   setPosition,
   setScene,
+  usePotion,
   wolfFalls,
   type Result,
 } from "@/lib/game-store";
@@ -108,13 +114,26 @@ export async function POST(request: Request) {
       break;
     case "wolf-loot":
     case "wolf-down":
-      result = wolfFalls(player);
+      result = body.id ? enemyFalls(player, String(body.id)) : wolfFalls(player);
       break;
     case "pickup-pelt":
-      result = pickupPelt(player);
+    case "pickup-loot":
+      result = body.id ? pickupLoot(player, String(body.id)) : pickupPelt(player);
       break;
     case "buy-sword":
       result = buySword(player);
+      break;
+    case "buy-shop":
+      result = buyFromBren(player, body.sku === "armor" ? "armor" : body.sku === "potion" ? "potion" : "sword");
+      break;
+    case "rest-bed":
+      result = restAtBed(player);
+      break;
+    case "use-potion":
+      result = usePotion(player);
+      break;
+    case "respawn-wilderness":
+      result = maybeTimerRespawn(player);
       break;
     case "health":
       result = {

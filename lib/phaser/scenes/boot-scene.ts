@@ -164,6 +164,23 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
   wolf.generateTexture("sprite-wolf", 40, 28);
   wolf.destroy();
 
+  const dire = gfx(scene);
+  dire.fillStyle(0x241810, 1);
+  dire.fillRect(8, 16, 40, 22);
+  dire.fillRect(0, 18, 14, 14);
+  dire.fillRect(40, 6, 14, 18);
+  dire.fillStyle(0x6a3a28, 1);
+  dire.fillRect(16, 20, 12, 7);
+  dire.fillStyle(0xc4a35a, 0.85);
+  dire.fillRect(4, 22, 5, 4);
+  dire.generateTexture("sprite-dire", 56, 40);
+  dire.destroy();
+
+  prop(scene, "sprite-hide", 24, 14, 0x3d2a1c, (g) => {
+    g.fillStyle(0x6a3a28, 1);
+    g.fillRect(4, 4, 16, 7);
+  });
+
   prop(scene, "sprite-bed", 28, 16, 0x7a4a38, (g) => {
     g.fillStyle(0xd7cfc0, 1);
     g.fillRect(2, 2, 16, 12);

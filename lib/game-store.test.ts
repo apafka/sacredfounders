@@ -1,6 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chooseClass, createPlayer, harvest, pickupPelt, plant, sellWheat, setScene, wolfFalls } from "./game-store";
+import {
+  ARMOR_COST,
+  PLAYER_DAMAGE,
+  PLAYER_MAX_HP,
+  POTION_COST,
+  POTION_HEAL,
+  RESPAWN_MS,
+  SWORD_COST,
+  SWORD_DAMAGE,
+  mitigateDamage,
+  playerStrikeDamage,
+} from "./combat";
+import {
+  buyFromBren,
+  chooseClass,
+  createPlayer,
+  enemyFalls,
+  harvest,
+  maybeTimerRespawn,
+  pickupLoot,
+  pickupPelt,
+  plant,
+  restAtBed,
+  sellWheat,
+  setScene,
+  usePotion,
+  wolfFalls,
+} from "./game-store";
 import { countItem } from "./game/inventory";
 import { GROW_MS } from "./types";
 
@@ -61,3 +88,80 @@ test("wolf leaves a pelt; pickup grants combat XP not gold", () => {
   assert.equal(loot.player.coins, 0);
   assert.equal(pickupPelt(loot.player, 7).ok, false);
 });
+
+test("going home respawns every wilderness encounter", () => {
+  let player = setScene(createPlayer("p4", "Alan", 1), "valley", 2).player;
+  player = enemyFalls(player, "wolf-near", 3).player;
+  player = enemyFalls(player, "dire", 4).player;
+  assert.equal(player.encounters.find((item) => item.id === "wolf-near")?.alive, false);
+  assert.equal(player.encounters.find((item) => item.id === "dire")?.alive, false);
+  const home = setScene(player, "hearth", 5);
+  assert.equal(home.ok, true);
+  assert.ok(home.player.encounters.every((item) => item.alive && item.hp > 0 && !item.lootDropped));
+  const back = setScene(home.player, "valley", 6).player;
+  assert.ok(back.encounters.every((item) => item.alive));
+  assert.equal(back.encounters.length, 4);
+});
+
+test("bed restores full health with feedback, and does little when already whole", () => {
+  const full = restAtBed(createPlayer("p5", "Alan", 1), 2);
+  assert.equal(full.ok, true);
+  assert.equal(full.message, "Already rested.");
+  const hurt = restAtBed({ ...createPlayer("p5b", "Alan", 1), health: 7 }, 3);
+  assert.equal(hurt.ok, true);
+  assert.equal(hurt.player.health, PLAYER_MAX_HP);
+  assert.equal(hurt.message, `+${PLAYER_MAX_HP - 7} HP · rested`);
+});
+
+test("Old Bren sells potion, sword, and armor for gold and they persist", () => {
+  let player = { ...createPlayer("p6", "Alan", 1), coins: 40 };
+  const potion = buyFromBren(player, "potion", 2);
+  assert.equal(potion.ok, true);
+  assert.equal(potion.player.coins, 35);
+  assert.equal(countItem(potion.player.inventory, "health_potion"), 1);
+  const blade = buyFromBren(potion.player, "sword", 3);
+  assert.equal(blade.ok, true);
+  assert.equal(blade.player.hasSword, true);
+  assert.equal(blade.player.strikeDamage, SWORD_DAMAGE);
+  assert.equal(countItem(blade.player.inventory, "iron_blade"), 1);
+  const coat = buyFromBren(blade.player, "armor", 4);
+  assert.equal(coat.ok, true);
+  assert.equal(coat.player.hasArmor, true);
+  assert.equal(coat.player.coins, 40 - POTION_COST - SWORD_COST - ARMOR_COST);
+  assert.equal(buyFromBren(coat.player, "sword", 5).ok, false);
+  const sip = usePotion({ ...coat.player, health: 6 }, 6);
+  assert.equal(sip.ok, true);
+  assert.equal(sip.player.health, 6 + POTION_HEAL);
+  assert.equal(countItem(sip.player.inventory, "health_potion"), 0);
+});
+
+test("dire wolf drops hide and more combat XP than a pack wolf", () => {
+  let player = setScene(createPlayer("p7", "Alan", 1), "valley", 2).player;
+  const down = enemyFalls(player, "dire", 3);
+  assert.equal(down.ok, true);
+  const loot = pickupLoot(down.player, "dire", 4);
+  assert.equal(loot.ok, true);
+  assert.equal(countItem(loot.player.inventory, "dire_hide"), 1);
+  assert.equal(loot.player.skills.combat.xp, 60);
+});
+
+test("timer respawn is secondary to going home", () => {
+  let player = setScene(createPlayer("p8", "Alan", 1), "valley", 2).player;
+  for (const enc of player.encounters) {
+    player = enemyFalls(player, enc.id, 3).player;
+  }
+  assert.ok(player.wildernessWipedAt);
+  assert.equal(maybeTimerRespawn(player, (player.wildernessWipedAt ?? 0) + 1_000).ok, false);
+  const later = maybeTimerRespawn(player, (player.wildernessWipedAt ?? 0) + RESPAWN_MS);
+  assert.equal(later.ok, true);
+  assert.ok(later.player.encounters.every((item) => item.alive && item.hp > 0));
+});
+
+test("armor knocks a point off incoming bites; sword raises strike", () => {
+  assert.equal(playerStrikeDamage(false), PLAYER_DAMAGE);
+  assert.equal(playerStrikeDamage(true), SWORD_DAMAGE);
+  assert.equal(mitigateDamage(2, false), 2);
+  assert.equal(mitigateDamage(2, true), 1);
+  assert.equal(mitigateDamage(4, true), 3);
+});
+
