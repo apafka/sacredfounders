@@ -34,7 +34,9 @@ export function emptySkills(): Record<SkillId, SkillState> {
 
 /** Combat level is the mean of Attack and Defense, floored. */
 export function combatLevel(skills: Record<SkillId, SkillState>): number {
-  return Math.max(1, Math.floor((skills.attack.level + skills.defense.level) / 2));
+  const attack = skills.attack?.level ?? 1;
+  const defense = skills.defense?.level ?? 1;
+  return Math.max(1, Math.floor((attack + defense) / 2));
 }
 
 export function normalizeSkill(raw?: SkillState | null, xp = 0): SkillState {

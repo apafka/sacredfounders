@@ -110,6 +110,9 @@ export function GameHud({
               {hp}/{player.maxHealth}
             </em>
           </div>
+          <div className="hud-gold">
+            Gold <strong>{player.coins}</strong>
+          </div>
           {gear ? <p className="hud-skills">{gear}</p> : null}
           {onSeed ? (
             <div className="seed-row" role="group" aria-label="Seed to plant">
@@ -128,9 +131,6 @@ export function GameHud({
               })}
             </div>
           ) : null}
-        </div>
-        <div className="hud-gold">
-          Gold <strong>{player.coins}</strong>
         </div>
       </div>
       {toast ? <p className="hud-toast">{toast}</p> : null}
