@@ -9,11 +9,13 @@ import {
   RESPAWN_MS,
   SWORD_COST,
   SWORD_DAMAGE,
+  breadHealAmount,
   mitigateDamage,
   playerStrikeDamage,
 } from "./combat";
 import { BREAD_HEAL, BREN_BREAD_REWARD_GOLD, BREN_GRAIN_REWARD_GOLD } from "./data/economy";
 import {
+  acceptQuest,
   bakeBread,
   buyFromBren,
   chooseClass,
@@ -27,11 +29,14 @@ import {
   pickupLoot,
   pickupPelt,
   plant,
+  recordStrike,
+  recordWound,
   refreshBrenDemand,
   restAtBed,
   sellToBren,
   sellWheat,
   setScene,
+  turnInQuest,
   usePotion,
   wolfFalls,
 } from "./game-store";
@@ -122,6 +127,7 @@ test("baking consumes wheat; eating bread heals less than a potion and is not a 
   assert.equal(baked.ok, true);
   assert.equal(countItem(baked.player.inventory, "wheat"), 0);
   assert.equal(countItem(baked.player.inventory, "bread"), 1);
+  assert.equal(baked.player.skills.cooking.xp, 12);
   const full = eatBread(baked.player, 51);
   assert.equal(full.ok, false);
   const hurt = eatBread({ ...baked.player, health: 8 }, 52);
@@ -208,7 +214,7 @@ test("old wheat-only saves gain a root and herb seed once", () => {
   assert.equal(loaded.livingBakery, true);
 });
 
-test("wolf leaves a pelt; pickup grants combat XP not gold", () => {
+test("wolf leaves a pelt; the kill grants Attack XP, not gold", () => {
   const pilgrim = createPlayer("p3", "F", 1);
   assert.equal(wolfFalls(pilgrim, 3).ok, false);
   const there = setScene(pilgrim, "valley", 4).player;
@@ -216,10 +222,11 @@ test("wolf leaves a pelt; pickup grants combat XP not gold", () => {
   assert.equal(down.ok, true);
   assert.equal(down.player.coins, 0);
   assert.equal(down.player.wolf.peltDropped, true);
+  assert.equal(down.player.skills.attack.xp, 25);
   const loot = pickupPelt(down.player, 6);
   assert.equal(loot.ok, true);
   assert.equal(countItem(loot.player.inventory, "wolf_pelt"), 1);
-  assert.equal(loot.player.skills.combat.xp, 25);
+  assert.equal(loot.player.skills.attack.xp, 25);
   assert.equal(loot.player.coins, 0);
   assert.equal(pickupPelt(loot.player, 7).ok, false);
 });
@@ -235,7 +242,7 @@ test("going home respawns every wilderness encounter", () => {
   assert.ok(home.player.encounters.every((item) => item.alive && item.hp > 0 && !item.lootDropped));
   const back = setScene(home.player, "valley", 6).player;
   assert.ok(back.encounters.every((item) => item.alive));
-  assert.equal(back.encounters.length, 4);
+  assert.equal(back.encounters.length, 7);
 });
 
 test("bed restores full health with feedback, and does little when already whole", () => {
@@ -270,32 +277,74 @@ test("Old Bren sells potion, sword, and armor for gold and they persist", () => 
   assert.equal(countItem(sip.player.inventory, "health_potion"), 0);
 });
 
-test("dire wolf drops hide and more combat XP than a pack wolf", () => {
+test("dire wolf drops hide; the kill grants more Attack XP than a pack wolf", () => {
   let player = setScene(createPlayer("p7", "Alan", 1), "valley", 2).player;
   const down = enemyFalls(player, "dire", 3);
   assert.equal(down.ok, true);
+  assert.equal(down.player.skills.attack.xp, 60);
   const loot = pickupLoot(down.player, "dire", 4);
   assert.equal(loot.ok, true);
   assert.equal(countItem(loot.player.inventory, "dire_hide"), 1);
-  assert.equal(loot.player.skills.combat.xp, 60);
+  assert.equal(loot.player.skills.attack.xp, 60);
 });
 
-test("timer respawn is secondary to going home", () => {
+test("dead wilderness foes respawn after 30s while the pilgrim stays", () => {
   let player = setScene(createPlayer("p8", "Alan", 1), "valley", 2).player;
-  for (const enc of player.encounters) {
-    player = enemyFalls(player, enc.id, 3).player;
-  }
-  assert.ok(player.wildernessWipedAt);
-  assert.equal(maybeTimerRespawn(player, (player.wildernessWipedAt ?? 0) + 1_000).ok, false);
-  const later = maybeTimerRespawn(player, (player.wildernessWipedAt ?? 0) + RESPAWN_MS);
+  player = enemyFalls(player, "wolf-near", 3).player;
+  assert.equal(player.encounters.find((item) => item.id === "wolf-near")?.alive, false);
+  assert.equal(player.encounters.find((item) => item.id === "dire")?.alive, true);
+  assert.equal(maybeTimerRespawn(player, 3 + 1_000).ok, false);
+  const later = maybeTimerRespawn(player, 3 + RESPAWN_MS);
   assert.equal(later.ok, true);
-  assert.ok(later.player.encounters.every((item) => item.alive && item.hp > 0));
+  assert.equal(later.player.encounters.find((item) => item.id === "wolf-near")?.alive, true);
+  assert.equal(later.player.encounters.find((item) => item.id === "dire")?.alive, true);
 });
 
-test("armor knocks a point off incoming bites; sword raises strike", () => {
+test("armor knocks a point off incoming bites; sword raises strike; skills still stack", () => {
   assert.equal(playerStrikeDamage(false), PLAYER_DAMAGE);
   assert.equal(playerStrikeDamage(true), SWORD_DAMAGE);
+  assert.equal(playerStrikeDamage(false, 3), PLAYER_DAMAGE + 1);
   assert.equal(mitigateDamage(2, false), 2);
   assert.equal(mitigateDamage(2, true), 1);
   assert.equal(mitigateDamage(4, true), 3);
+  assert.equal(mitigateDamage(4, false, 4), 3);
+  assert.equal(breadHealAmount(1), BREAD_HEAL);
+  assert.equal(breadHealAmount(3), BREAD_HEAL + 1);
 });
+
+test("strikes grant Attack XP and wounds grant Defense XP", () => {
+  let player = setScene(createPlayer("p-xp", "Alan", 1), "valley", 2).player;
+  player = recordStrike(player, 3).player;
+  player = recordWound(player, 4).player;
+  assert.equal(player.skills.attack.xp, 4);
+  assert.equal(player.skills.defense.xp, 3);
+});
+
+test("Two Pelts for Bren can be accepted, progressed, and turned in", () => {
+  let player = createPlayer("p-quest", "Alan", 1);
+  assert.equal(player.quest.status, "available");
+  const accepted = acceptQuest(player, 2);
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.player.quest.status, "active");
+  assert.equal(turnInQuest(accepted.player, 3).ok, false);
+  let inv = addItem(accepted.player.inventory, "wolf_pelt", 2) ?? accepted.player.inventory;
+  player = { ...accepted.player, inventory: inv };
+  const done = turnInQuest(player, 4);
+  assert.equal(done.ok, true);
+  assert.equal(done.player.quest.status, "complete");
+  assert.equal(done.player.coins, 12);
+  assert.equal(countItem(done.player.inventory, "wolf_pelt"), 0);
+  assert.equal(done.player.skills.attack.xp, 40);
+  assert.equal(turnInQuest(done.player, 5).ok, false);
+});
+
+test("boar and spider drop their own trophies", () => {
+  let player = setScene(createPlayer("p-bestiary", "Alan", 1), "valley", 2).player;
+  player = enemyFalls(player, "boar-west", 3).player;
+  player = pickupLoot(player, "boar-west", 4).player;
+  assert.equal(countItem(player.inventory, "boar_tusk"), 1);
+  player = enemyFalls(player, "spider-east", 5).player;
+  player = pickupLoot(player, "spider-east", 6).player;
+  assert.equal(countItem(player.inventory, "spider_silk"), 1);
+});
+

@@ -273,6 +273,106 @@ h2 {
   font-size: 1.15rem;
 }
 
+.hud-rail {
+  pointer-events: auto;
+  position: absolute;
+  z-index: 3;
+  top: 3.4rem;
+  right: 0.75rem;
+  width: min(13.5rem, 34vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.hud-quest,
+.hud-skill-panel,
+.hud-minimap {
+  background: #f3efe4ee;
+  color: var(--ink);
+  border: 1px solid #d7cfc0;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.hud-quest p + p,
+.hud-skill-panel p + p {
+  margin-top: 0.2rem;
+}
+
+.combat-level {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 0.88rem;
+  margin-bottom: 0.25rem;
+}
+
+.skill-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  margin-top: 0.28rem;
+}
+
+.skill-row span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.xp-track {
+  width: 100%;
+  height: 0.35rem;
+  background: #2c241c;
+}
+
+.xp-fill {
+  height: 100%;
+  background: #8b5e3c;
+}
+
+.hud-minimap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  border: 1px solid #d7cfc0;
+  background: #2c241c;
+}
+
+.hud-minimap ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.hud-minimap .dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.2rem;
+  border-radius: 99px;
+  background: #f3efe4;
+  box-shadow: 0 0 0 1px #2c241c;
+}
+
+.hud-minimap .dot.bren {
+  background: #6a3a28;
+}
+
+.hud-minimap .dot.garden {
+  background: #6d7a4e;
+}
+
+.hud-minimap .dot.foe {
+  background: #8a4a32;
+}
+
+.hud-minimap .dot.door {
+  background: #c4a35a;
+}
+
 .hud-panel {
   pointer-events: auto;
   position: absolute;

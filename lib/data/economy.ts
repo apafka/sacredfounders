@@ -13,9 +13,11 @@
  * Craft: 1 wheat → 1 bread. Grain is consumed (creation ≈ destruction).
  *
  * Heal:
- *   bread   +6 HP   snack, not a rest
+ *   bread   +6 HP   snack, not a rest; Cooking +1 heal every 2 levels
  *   potion  +10 HP
  *   bed     full HP (20)
+ *
+ * Cooking: bake grants 12 Cooking XP (50 XP / level).
  *
  * Bren demand (DeterministicBrain, no LLM):
  *   3 bread → +18 gold (12 market + 6 neighbor bonus) and +15 Farming XP

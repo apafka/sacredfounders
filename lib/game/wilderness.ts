@@ -2,15 +2,20 @@ import { enemyDefinition, VALLEY_ENCOUNTERS, type EncounterKind } from "@/lib/da
 import { RESPAWN_MS } from "@/lib/combat";
 import type { EncounterSave, WolfSave } from "@/lib/types";
 
-export function freshEncounters(): EncounterSave[] {
-  return VALLEY_ENCOUNTERS.map((spot) => ({
-    id: spot.id,
-    kind: spot.kind,
+export function freshEncounter(id: string, kind: EncounterKind): EncounterSave {
+  return {
+    id,
+    kind,
     alive: true,
-    hp: enemyDefinition(spot.kind).health,
+    hp: enemyDefinition(kind).health,
     lootDropped: false,
     lootTaken: false,
-  }));
+    diedAt: null,
+  };
+}
+
+export function freshEncounters(): EncounterSave[] {
+  return VALLEY_ENCOUNTERS.map((spot) => freshEncounter(spot.id, spot.kind));
 }
 
 export function mirrorWolf(encounters: EncounterSave[]): WolfSave {
@@ -31,13 +36,15 @@ export function ensureEncounters(raw?: EncounterSave[] | null, wolf?: WolfSave |
     return base.map((spot) => {
       const saved = byId.get(spot.id);
       if (!saved) return spot;
+      const alive = saved.alive;
       return {
         id: spot.id,
-        kind: saved.kind === "dire" ? "dire" : spot.kind,
-        alive: saved.alive,
-        hp: saved.alive ? Math.max(1, saved.hp || spot.hp) : 0,
+        kind: spot.kind,
+        alive,
+        hp: alive ? Math.max(1, saved.hp || spot.hp) : 0,
         lootDropped: Boolean(saved.lootDropped),
         lootTaken: Boolean(saved.lootTaken),
+        diedAt: alive ? null : (saved.diedAt ?? null),
       };
     });
   }
@@ -50,6 +57,7 @@ export function ensureEncounters(raw?: EncounterSave[] | null, wolf?: WolfSave |
           hp: wolf.alive ? wolf.hp || spot.hp : 0,
           lootDropped: wolf.peltDropped,
           lootTaken: wolf.peltTaken,
+          diedAt: wolf.alive ? null : null,
         }
       : spot,
   );
@@ -62,6 +70,26 @@ export function allEncountersDown(encounters: EncounterSave[]): boolean {
 export function shouldTimerRespawn(wipedAt: number | null, now: number, windowMs = RESPAWN_MS): boolean {
   if (!wipedAt || windowMs <= 0) return false;
   return now - wipedAt >= windowMs;
+}
+
+export function encounterReadyToRevive(item: EncounterSave, now: number, windowMs = RESPAWN_MS): boolean {
+  if (item.alive || windowMs <= 0) return false;
+  if (item.diedAt == null) return false;
+  return now - item.diedAt >= windowMs;
+}
+
+export function reviveTimedEncounters(
+  encounters: EncounterSave[],
+  now: number,
+  windowMs = RESPAWN_MS,
+): { encounters: EncounterSave[]; revived: string[] } {
+  const revived: string[] = [];
+  const next = encounters.map((item) => {
+    if (!encounterReadyToRevive(item, now, windowMs)) return item;
+    revived.push(item.id);
+    return freshEncounter(item.id, item.kind);
+  });
+  return { encounters: next, revived };
 }
 
 export function encounterKindFromId(id: string): EncounterKind {

@@ -26,12 +26,12 @@ npm run build
 
 1. Spawn at the hearth — bed, fireplace, chest, oven, door. Warm cottage, garden just outside.
 2. Three farm plots and three seeds (wheat, root, herb). HUD buttons or keys 1/2/3 pick the seed. Plant → grow ~40–50s with distinct visuals → harvest returns the seed + Farming XP.
-3. Walk to the **oven** (cottage workbench): 1 wheat → 1 bread. Grain is consumed.
-4. Walk to **Old Bren**. He wants three loaves (DeterministicBrain demand). Deliver them for a neighbor bonus, or sell crops at 2/3/5 gold. Shop still sells potion, blade, coat.
-5. Eat bread from the pack (B, or click) for **+6 HP**. Potion is +10. Bed is a full rest. They are not the same.
-6. Path through the door to the forest edge. Wolves. Click to fight. Pelts drop.
-7. HUD: health, gold, seed picker, pack (I), Farming + Combat. No wallet, marketplace, or chain copy.
-8. `GamePersistence` saves position, gold, inventory, skills, crops, bread, and Bren's demand. Pilgrim cookie `sf_pilgrim` still identifies the session.
+3. Walk to the **oven** (cottage workbench): 1 wheat → 1 bread. Grain is consumed. Baking grants Cooking XP.
+4. Walk to **Old Bren**. He wants three loaves (DeterministicBrain demand). He also offers **Two Pelts for Bren** (bring 2 Wolf Pelts). Deliver loaves for a neighbor bonus, or sell crops at 2/3/5 gold. Shop still sells potion, blade, coat.
+5. Eat bread from the pack (B, or click) for **+6 HP** (Cooking can add a point). Potion is +10. Bed is a full rest. They are not the same.
+6. Path through the door into a longer wilderness. Four pack wolves on the path, a boar in the west wallow, a spider off the east pad, a dire wolf in the deep woods. Dead beasts return after **30 seconds** if you stay. Click to fight. Drops stay on the ground until you pick them up or they respawn.
+7. HUD (right rail): Attack, Defense, Farming, Cooking with XP bars, Combat level, the active quest, and a minimap. No wallet, marketplace, or chain copy.
+8. `GamePersistence` saves position, gold, inventory, skills, crops, bread, Bren's demand, and the quest. Pilgrim cookie `sf_pilgrim` still identifies the session.
 9. Dragon is presence only: tracks, a scale, a carving, Bren's rumor.
 
 ## Deploy (CBO)
@@ -51,9 +51,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for scene hierarchy, data models, and t
 
 **Stack.** Next.js 16 + Three.js / React Three Fiber (orthographic isometric, default) with Phaser 3.90 as a zoomed-out tile fallback (`?view=phaser`). Canvas is a progressive enhancement: `next/dynamic` + `ssr: false`. If WebGL misses, Phaser loads; if that misses too, a written hearth remains.
 
-**World.** Hearth cottage (south) and valley path (north). Maps are 32 tiles wide with east/south padding; the viewport is **896×576** (~1.8× the old 640×448), so cottage + garden + path read as a place, not a close-up. Same furniture, three plots, Old Bren, door, one wolf, Wolf Pelt.
+**World.** Hearth cottage (south) and a longer valley (north). Maps are 32 tiles wide with east padding; the valley is **44** rows so the walk from the door to the dire wolf reads as wilderness. Viewport is **896×576**. Cottage, garden, Bren, door; pack wolves, boar, spider, dire wolf.
 
-**Combat.** One wolf at the forest edge. Click to close and auto-attack (3 damage vs 12 HP). No pack, no dire wolf, no Strike button.
+**Combat.** Click to close and auto-attack. Unarmed 3, blade 5, plus Attack. Armor and Defense shave incoming bites. Dead wilderness foes respawn at their pads after **30s** while you remain in the valley. Going home still resets the pack.
+
+**Skills.** Attack / Defense / Farming / Cooking. 50 XP per level. Combat level is the mean of Attack and Defense. Right-side HUD + minimap.
 
 **Art-pack swap.** Phaser placeholders are generated in BootScene. To replace them:
 
@@ -62,4 +64,4 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for scene hierarchy, data models, and t
 3. Set `USE_ART_PACK = true` in `lib/phaser/art.ts`.
 4. Leave texture keys unchanged.
 
-**Out of slice.** Class pick, fishing, cooking, Iron Blade shop, wallet/Privy UI, marketplace, chain. `ENABLE_CHAIN` stays off. Files may still exist as stubs.
+**Out of slice.** Class pick, fishing as a feature, wallet/Privy UI, marketplace, chain. `ENABLE_CHAIN` stays off. Files may still exist as stubs.

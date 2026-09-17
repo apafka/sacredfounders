@@ -17,6 +17,8 @@ export type WorldEvent =
   | { type: "bake-bread" }
   | { type: "fulfill-demand" }
   | { type: "respawn-wilderness" }
+  | { type: "strike" }
+  | { type: "wound" }
   | { type: "combat"; you: number }
   | { type: "health"; health: number }
   | { type: "position"; x: number; y: number }

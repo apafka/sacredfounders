@@ -16,6 +16,10 @@ import {
   maybeTimerRespawn,
   pickupLoot,
   pickupPelt,
+  recordStrike,
+  recordWound,
+  acceptQuest,
+  turnInQuest,
   plant,
   refreshBrenDemand,
   restAtBed,
@@ -147,6 +151,18 @@ export async function POST(request: Request) {
       break;
     case "respawn-wilderness":
       result = maybeTimerRespawn(player);
+      break;
+    case "strike":
+      result = recordStrike(player);
+      break;
+    case "wound":
+      result = recordWound(player);
+      break;
+    case "accept-quest":
+      result = acceptQuest(player);
+      break;
+    case "turn-in-quest":
+      result = turnInQuest(player);
       break;
     case "health":
       result = {

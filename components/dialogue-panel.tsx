@@ -2,6 +2,7 @@
 
 import { BREN, BREN_SHOP, type ShopSku } from "@/lib/data/npcs";
 import { BREN_PRICES } from "@/lib/data/economy";
+import { TWO_PELTS } from "@/lib/data/quests";
 import { countItem } from "@/lib/game/inventory";
 import { brenBrain } from "@/lib/game/npc";
 import type { GoodsId, PlayerState } from "@/lib/types";
@@ -12,6 +13,8 @@ export function DialoguePanel({
   onBuy,
   onBake,
   onFulfill,
+  onAcceptQuest,
+  onTurnInQuest,
   onClose,
 }: {
   player: PlayerState;
@@ -19,6 +22,8 @@ export function DialoguePanel({
   onBuy: (sku: ShopSku) => void;
   onBake?: () => void;
   onFulfill?: () => void;
+  onAcceptQuest?: () => void;
+  onTurnInQuest?: () => void;
   onClose: () => void;
 }) {
   const wheat = countItem(player.inventory, "wheat");
@@ -33,6 +38,9 @@ export function DialoguePanel({
     demand: player.brenDemand,
   });
   const canFulfill = intent.type === "demand" && intent.ready;
+  const pelts = countItem(player.inventory, TWO_PELTS.itemId);
+  const quest = player.quest;
+  const questReady = quest?.status === "active" && pelts >= TWO_PELTS.need;
 
   function owned(sku: ShopSku) {
     if (sku === "sword") return player.hasSword;
@@ -49,7 +57,28 @@ export function DialoguePanel({
       <p className="mt-2 text-sm text-[var(--muted)]">{BREN.bake}</p>
       <p className="mt-2 text-sm text-[var(--muted)]">{BREN.shop}</p>
       <p className="mt-2 text-sm text-[var(--muted)]">{BREN.rumor}</p>
+      {quest?.status === "available" ? (
+        <p className="mt-2 text-sm text-[var(--muted)]">{TWO_PELTS.offer}</p>
+      ) : null}
+      {quest?.status === "active" ? (
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          {questReady ? TWO_PELTS.ready : `${TWO_PELTS.active} (${pelts}/${TWO_PELTS.need})`}
+        </p>
+      ) : null}
+      {quest?.status === "complete" ? (
+        <p className="mt-2 text-sm text-[var(--muted)]">{TWO_PELTS.thanks}</p>
+      ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
+        {quest?.status === "available" && onAcceptQuest ? (
+          <button className="btn-primary" type="button" onClick={onAcceptQuest}>
+            Accept: two wolf pelts
+          </button>
+        ) : null}
+        {questReady && onTurnInQuest ? (
+          <button className="btn-primary" type="button" onClick={onTurnInQuest}>
+            Deliver {TWO_PELTS.need} pelts
+          </button>
+        ) : null}
         {canFulfill && onFulfill ? (
           <button className="btn-primary" type="button" onClick={onFulfill}>
             {intent.type === "demand" && intent.itemId === "bread"

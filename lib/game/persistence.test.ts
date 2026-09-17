@@ -12,7 +12,9 @@ test("GamePersistence round-trips gold, inventory, skills, crops, and position",
   assert.ok(loaded);
   assert.equal(loaded.player.coins, 6);
   assert.equal(loaded.player.hasArmor, true);
-  assert.equal(loaded.player.encounters.length, 4);
+  assert.equal(loaded.player.encounters.length, 7);
+  assert.equal(loaded.player.quest.status, "available");
+  assert.equal(loaded.player.skills.attack.level, 1);
   assert.deepEqual(loaded.player.position, { x: 40, y: 80 });
   assert.equal(loaded.player.plots[0].crop, "grain");
   assert.equal(loaded.player.brenDemand.kind, "bread");

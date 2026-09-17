@@ -215,9 +215,45 @@ export function makePlaceholderTextures(scene: Phaser.Scene) {
   dire.generateTexture("sprite-dire", 56, 40);
   dire.destroy();
 
+  const boar = gfx(scene);
+  boar.fillStyle(0x6a4a32, 1);
+  boar.fillRect(8, 14, 32, 18);
+  boar.fillRect(34, 16, 12, 12);
+  boar.fillStyle(0xe8d9b0, 1);
+  boar.fillRect(42, 18, 8, 3);
+  boar.fillRect(42, 24, 8, 3);
+  boar.generateTexture("sprite-boar", 52, 36);
+  boar.destroy();
+
+  const spider = gfx(scene);
+  spider.fillStyle(0x3a3228, 1);
+  spider.fillCircle(16, 16, 8);
+  spider.fillCircle(24, 16, 6);
+  spider.lineStyle(2, 0x2c241c, 1);
+  spider.beginPath();
+  spider.moveTo(8, 10);
+  spider.lineTo(4, 6);
+  spider.moveTo(8, 22);
+  spider.lineTo(4, 26);
+  spider.moveTo(24, 10);
+  spider.lineTo(30, 6);
+  spider.moveTo(24, 22);
+  spider.lineTo(30, 26);
+  spider.strokePath();
+  spider.generateTexture("sprite-spider", 36, 32);
+  spider.destroy();
+
   prop(scene, "sprite-hide", 24, 14, 0x3d2a1c, (g) => {
     g.fillStyle(0x6a3a28, 1);
     g.fillRect(4, 4, 16, 7);
+  });
+  prop(scene, "sprite-tusk", 16, 12, 0xc4b08a, (g) => {
+    g.fillStyle(0xe8d9b0, 1);
+    g.fillRect(3, 4, 10, 4);
+  });
+  prop(scene, "sprite-silk", 18, 12, 0xd7cfc0, (g) => {
+    g.fillStyle(0xf3efe4, 1);
+    g.fillRect(4, 3, 10, 6);
   });
 
   prop(scene, "sprite-bed", 28, 16, 0x7a4a38, (g) => {

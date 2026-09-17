@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { CROP_META, plotStage } from "@/lib/crops";
+import { dropLabel, enemyDefinition } from "@/lib/data/enemies";
 import type { ShopSku } from "@/lib/data/npcs";
 import type { WorldEvent } from "@/lib/phaser/bridge";
 import { preferredRenderer, type WorldRenderer } from "@/lib/three/engine";
@@ -55,6 +56,8 @@ export function WorldStage({
   onBuy,
   onBake,
   onFulfill,
+  onAcceptQuest,
+  onTurnInQuest,
   onRest,
   onUsePotion,
   onEatBread,
@@ -62,6 +65,8 @@ export function WorldStage({
   onWolfDown,
   onPickupPelt,
   onRespawn,
+  onStrike,
+  onWound,
   onHealth,
   onPosition,
   onToggleInventory,
@@ -83,6 +88,8 @@ export function WorldStage({
   onBuy: (sku: ShopSku) => void;
   onBake: () => void;
   onFulfill: () => void;
+  onAcceptQuest: () => void;
+  onTurnInQuest: () => void;
   onRest: () => void;
   onUsePotion: () => void;
   onEatBread: () => void;
@@ -90,6 +97,8 @@ export function WorldStage({
   onWolfDown: (id?: string) => void;
   onPickupPelt: (id?: string) => void;
   onRespawn: () => void;
+  onStrike: () => void;
+  onWound: () => void;
   onHealth: (health: number) => void;
   onPosition: (x: number, y: number) => void;
   onToggleInventory: (open?: boolean) => void;
@@ -159,6 +168,12 @@ export function WorldStage({
         case "respawn-wilderness":
           onRespawn();
           break;
+        case "strike":
+          onStrike();
+          break;
+        case "wound":
+          onWound();
+          break;
         case "combat":
         case "health":
           onHealth("health" in event ? event.health : event.you);
@@ -173,7 +188,7 @@ export function WorldStage({
           break;
       }
     },
-    [engine, isoFailed, onBake, onBuy, onDoor, onEatBread, onFulfill, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onRest, onRespawn, onToast, onToggleDialogue, onToggleInventory, onUsePotion, onWolfDown],
+    [engine, isoFailed, onBake, onBuy, onDoor, onEatBread, onFulfill, onHarvest, onHealth, onHint, onPickupPelt, onPlant, onPosition, onRest, onRespawn, onStrike, onToast, onToggleDialogue, onToggleInventory, onUsePotion, onWolfDown, onWound],
   );
 
   const usePhaser = engine === "phaser" || isoFailed;
@@ -222,6 +237,8 @@ export function WorldStage({
             onBuy={onBuy}
             onBake={onBake}
             onFulfill={onFulfill}
+            onAcceptQuest={onAcceptQuest}
+            onTurnInQuest={onTurnInQuest}
             onClose={() => onToggleDialogue(false)}
           />
         ) : null}
@@ -270,6 +287,8 @@ export function WorldStage({
             onBuy={onBuy}
             onBake={onBake}
             onFulfill={onFulfill}
+            onAcceptQuest={onAcceptQuest}
+            onTurnInQuest={onTurnInQuest}
             onClose={() => onToggleDialogue(false)}
           />
         </>
@@ -313,13 +332,13 @@ function TextSlice({
       <section className="panel m-4">
         <h2>Forest path</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          The woods run longer now. A pack on the path. A larger shape further in. Enormous tracks. A scale. A carving.
+          The woods run longer now. A pack on the path, a boar in the wallow, a spider off the east pad. A larger shape further in.
         </p>
         {living.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {living.map((foe) => (
               <button key={foe.id} className="btn-primary" type="button" disabled={busy} onClick={() => onWolfDown(foe.id)}>
-                Face the {foe.kind === "dire" ? "dire wolf" : "wolf"}
+                Face the {enemyDefinition(foe.kind).name.toLowerCase()}
               </button>
             ))}
           </div>
@@ -327,7 +346,7 @@ function TextSlice({
           <div className="mt-4 flex flex-wrap gap-2">
             {loot.map((foe) => (
               <button key={foe.id} className="btn-primary" type="button" disabled={busy} onClick={() => onPickupPelt(foe.id)}>
-                Pick up {foe.kind === "dire" ? "Dire Hide" : "Wolf Pelt"}
+                Pick up {dropLabel(foe.kind)}
               </button>
             ))}
           </div>
