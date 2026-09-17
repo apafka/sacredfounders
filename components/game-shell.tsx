@@ -8,6 +8,7 @@ import {
   eatBread,
   fulfillBrenDemand,
   harvest,
+  hydratePlayer,
   pickupLoot,
   plant,
   refreshBrenDemand,
@@ -22,6 +23,10 @@ import {
   enemyFalls,
   wolfFalls,
   maybeTimerRespawn,
+  recordStrike,
+  recordWound,
+  acceptQuest,
+  turnInQuest,
 } from "@/lib/game-store";
 import { createLocalStoragePersistence, mergeSession, toSnapshot } from "@/lib/game/persistence";
 import type { CropId, GoodsId, PlayerState } from "@/lib/types";
@@ -74,7 +79,7 @@ export function GameShell() {
           return;
         }
         const local = persist.current.load(data.player.id);
-        const merged = mergeSession(data.player, local);
+        const merged = hydratePlayer(mergeSession(data.player, local));
         playerRef.current = merged;
         setPlayer(merged);
       })
@@ -161,7 +166,11 @@ export function GameShell() {
       next.message.includes("Armor") ||
       next.message.includes("Baked") ||
       next.message.includes("bread") ||
-      next.message.includes("fed")
+      next.message.includes("fed") ||
+      next.message.includes("Attack") ||
+      next.message.includes("Defense") ||
+      next.message.includes("Cooking") ||
+      next.message.includes("pelts")
     ) {
       setToast(next.message);
     }
@@ -227,6 +236,8 @@ export function GameShell() {
         onBuy={(sku) => applyLocal(buyFromBren(current(), sku))}
         onBake={() => applyLocal(bakeBread(current()))}
         onFulfill={() => applyLocal(fulfillBrenDemand(current()))}
+        onAcceptQuest={() => applyLocal(acceptQuest(current()))}
+        onTurnInQuest={() => applyLocal(turnInQuest(current()))}
         onRest={() => applyLocal(restAtBed(current()))}
         onUsePotion={() => applyLocal(usePotion(current()))}
         onEatBread={() => applyLocal(eatBread(current()))}
@@ -241,6 +252,8 @@ export function GameShell() {
           )
         }
         onRespawn={() => applyLocal(maybeTimerRespawn(current()))}
+        onStrike={() => applyLocal(recordStrike(current()), false)}
+        onWound={() => applyLocal(recordWound(current()), false)}
         onHealth={(health) => {
           const cur = current();
           if (cur.health === health) return;

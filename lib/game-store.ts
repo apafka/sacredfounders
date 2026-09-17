@@ -4,17 +4,16 @@ import {
   PLAYER_MAX_HP,
   POTION_COST,
   POTION_HEAL,
-  RESPAWN_MS,
   SWORD_COST,
   SWORD_DAMAGE,
+  breadHealAmount,
   playerStrikeDamage,
   type BeastKind,
 } from "./combat";
 import { CROPS } from "./data/crops";
-import { enemyDefinition } from "./data/enemies";
+import { dropLabel, enemyDefinition } from "./data/enemies";
 import {
   BAKE_WHEAT_COST,
-  BREAD_HEAL,
   BREN_BREAD_REWARD_GOLD,
   BREN_BREAD_REWARD_XP,
   BREN_DEMAND_QTY,
@@ -23,17 +22,26 @@ import {
   BREN_PRICES,
 } from "./data/economy";
 import { BREN, type ShopSku } from "./data/npcs";
+import { TWO_PELTS, hydrateQuest, openingQuest } from "./data/quests";
 import type { ItemId } from "./data/items";
 import { plotReady } from "./crops";
 import { addItem, countItem, emptyInventory, removeItem } from "./game/inventory";
 import { demandItem } from "./game/npc";
-import { emptySkills, grantXp } from "./game/skills";
+import {
+  ATTACK_XP_PER_HIT,
+  COOKING_XP_PER_BAKE,
+  DEFENSE_XP_PER_HIT,
+  combatLevel,
+  emptySkills,
+  grantXp,
+  hydrateSkills,
+} from "./game/skills";
 import {
   allEncountersDown,
   ensureEncounters,
   freshEncounters,
   mirrorWolf,
-  shouldTimerRespawn,
+  reviveTimedEncounters,
 } from "./game/wilderness";
 import type { BrenDemand, ClassId, CropId, EncounterSave, GoodsId, PlayerState } from "./types";
 import { GOODS_IDS } from "./types";
@@ -85,8 +93,10 @@ function withMirrors(player: PlayerState): PlayerState {
     seeds,
     basket,
     farmSkill: player.skills.farming.level,
-    xp: player.skills.combat.xp,
-    level: player.skills.combat.level,
+    cookSkill: player.skills.cooking.level,
+    xp: player.skills.attack.xp,
+    level: combatLevel(player.skills),
+    strikeDamage: playerStrikeDamage(player.hasSword, player.skills.attack.level),
   };
 }
 
@@ -120,7 +130,7 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     maxHealth: PLAYER_MAX_HP,
     farmSkill: 1,
     fishSkill: 0,
-    cookSkill: 0,
+    cookSkill: 1,
     harvests: 0,
     wolves: 0,
     xp: 0,
@@ -139,6 +149,7 @@ export function createPlayer(id: string, name: string, now = Date.now()): Player
     wolf: mirrorWolf(freshEncounters()),
     wildernessWipedAt: null,
     brenDemand: openingBrenDemand(),
+    quest: openingQuest(),
     livingBakery: true,
     whisper: "The fire kept. The garden is yours. The door waits whenever you do.",
     log: [{ at: now, text: "You wake at the hearth. This is home." }],
@@ -291,14 +302,24 @@ export function bakeBread(player: PlayerState, now = Date.now()): Result {
   if (!spent) return { player, ok: false, message: "Need wheat for bread." };
   const nextInv = addItem(spent, "bread", 1);
   if (!nextInv) return { player, ok: false, message: "Inventory is full." };
+  const gained = grantXp(player.skills, "cooking", COOKING_XP_PER_BAKE);
   const next = withMirrors(
     log(
-      { ...player, inventory: nextInv, cookSkill: player.cookSkill + 1, whisper: BREN.bake },
-      "Wheat in, bread out. The sheaf is gone.",
+      {
+        ...player,
+        inventory: nextInv,
+        skills: gained.skills,
+        whisper: BREN.bake,
+      },
+      `Wheat in, bread out. +${COOKING_XP_PER_BAKE} Cooking XP${gained.leveled ? `. Cooking ${gained.skills.cooking.level}.` : "."}`,
       now,
     ),
   );
-  return { player: next, ok: true, message: "Baked bread." };
+  return {
+    player: next,
+    ok: true,
+    message: gained.leveled ? `Baked bread. Cooking ${gained.skills.cooking.level}.` : "Baked bread.",
+  };
 }
 
 /** @deprecated Use bakeBread. Kept for the old cook action. */
@@ -310,7 +331,7 @@ export function eatBread(player: PlayerState, now = Date.now()): Result {
   if (player.health >= player.maxHealth) return { player, ok: false, message: "You are already whole." };
   const nextInv = removeItem(player.inventory, "bread", 1);
   if (!nextInv) return { player, ok: false, message: "No bread." };
-  const healed = Math.min(BREAD_HEAL, player.maxHealth - player.health);
+  const healed = Math.min(breadHealAmount(player.skills.cooking.level), player.maxHealth - player.health);
   const next = withMirrors(
     log(
       { ...player, inventory: nextInv, health: player.health + healed },
@@ -401,11 +422,14 @@ export function respawnWilderness(player: PlayerState): PlayerState {
 
 export function maybeTimerRespawn(player: PlayerState, now = Date.now()): Result {
   if (player.scene !== "valley") return { player, ok: false, message: "The valley is through the door." };
-  if (!shouldTimerRespawn(player.wildernessWipedAt, now, RESPAWN_MS)) {
+  const encounters = player.encounters.length ? player.encounters : ensureEncounters(null, player.wolf);
+  const { encounters: nextEncounters, revived } = reviveTimedEncounters(encounters, now);
+  if (revived.length === 0) {
     return { player, ok: false, message: "The woods still hold their dead." };
   }
-  const next = log(respawnWilderness(player), "The pack answers again from the trees.", now);
-  return { player: next, ok: true, message: "The pack returns." };
+  const next = withEncounters({ ...player }, nextEncounters, now);
+  const line = revived.length === 1 ? "A shape answers again from the trees." : "The pack answers again from the trees.";
+  return { player: log(next, line, now), ok: true, message: line };
 }
 
 export function restAtBed(player: PlayerState, now = Date.now()): Result {
@@ -496,12 +520,12 @@ export function usePotion(player: PlayerState, now = Date.now()): Result {
   return { player: next, ok: true, message: `+${healed} HP` };
 }
 
-function withEncounters(player: PlayerState, encounters: EncounterSave[]): PlayerState {
+function withEncounters(player: PlayerState, encounters: EncounterSave[], now = Date.now()): PlayerState {
   return {
     ...player,
     encounters,
     wolf: mirrorWolf(encounters),
-    wildernessWipedAt: allEncountersDown(encounters) ? (player.wildernessWipedAt ?? Date.now()) : null,
+    wildernessWipedAt: allEncountersDown(encounters) ? (player.wildernessWipedAt ?? now) : null,
   };
 }
 
@@ -516,20 +540,29 @@ export function enemyFalls(player: PlayerState, encounterId: string, now = Date.
   }
   const kind = target.kind;
   const nextEncounters = encounters.map((item, i) =>
-    i === index ? { ...item, alive: false, hp: 0, lootDropped: true } : item,
+    i === index ? { ...item, alive: false, hp: 0, lootDropped: true, diedAt: now } : item,
   );
-  const name = enemyDefinition(kind).name;
-  const next = withEncounters(
-    {
-      ...player,
-      wolves: player.wolves + (target.alive ? 1 : 0),
-    },
-    nextEncounters,
+  const def = enemyDefinition(kind);
+  const gained = target.alive ? grantXp(player.skills, "attack", def.xp) : { skills: player.skills, leveled: false };
+  const next = withMirrors(
+    withEncounters(
+      {
+        ...player,
+        skills: gained.skills,
+        wolves: player.wolves + (target.alive ? 1 : 0),
+      },
+      nextEncounters,
+      now,
+    ),
   );
   return {
-    player: log(next, `${name} falls. Something in the grass.`, now),
+    player: log(
+      next,
+      `${def.name} falls. ${dropLabel(kind)} in the grass. +${def.xp} Attack XP${gained.leveled ? `. Attack ${gained.skills.attack.level}.` : "."}`,
+      now,
+    ),
     ok: true,
-    message: `${name} falls.`,
+    message: `${def.name} falls.`,
   };
 }
 
@@ -549,18 +582,84 @@ export function pickupLoot(player: PlayerState, encounterId: string, now = Date.
   if (!drop) return { player, ok: false, message: "Nothing to take." };
   const nextInv = addItem(player.inventory, drop.itemId, drop.qty);
   if (!nextInv) return { player, ok: false, message: "Inventory is full." };
-  const xp = enemyDefinition(target.kind).xp;
-  const gained = grantXp(player.skills, "combat", xp);
   const nextEncounters = encounters.map((item, i) => (i === index ? { ...item, lootDropped: false, lootTaken: true } : item));
-  const label = drop.itemId === "dire_hide" ? "Dire Hide" : "Wolf Pelt";
+  const label = dropLabel(target.kind);
   const next = withMirrors(
     log(
-      withEncounters({ ...player, inventory: nextInv, skills: gained.skills }, nextEncounters),
-      `${label} acquired. +${xp} Combat XP${gained.leveled ? `. Combat ${gained.skills.combat.level}.` : "."}`,
+      withEncounters({ ...player, inventory: nextInv }, nextEncounters, now),
+      `${label} acquired.`,
       now,
     ),
   );
   return { player: next, ok: true, message: `${label} acquired.` };
+}
+
+export function recordStrike(player: PlayerState, now = Date.now()): Result {
+  if (player.scene !== "valley") return { player, ok: false, message: "" };
+  const gained = grantXp(player.skills, "attack", ATTACK_XP_PER_HIT);
+  const next = withMirrors({ ...player, skills: gained.skills });
+  if (!gained.leveled) return { player: next, ok: true, message: "" };
+  return {
+    player: log(next, `Attack ${gained.skills.attack.level}.`, now),
+    ok: true,
+    message: `Attack ${gained.skills.attack.level}.`,
+  };
+}
+
+export function recordWound(player: PlayerState, now = Date.now()): Result {
+  if (player.scene !== "valley") return { player, ok: false, message: "" };
+  const gained = grantXp(player.skills, "defense", DEFENSE_XP_PER_HIT);
+  const next = withMirrors({ ...player, skills: gained.skills });
+  if (!gained.leveled) return { player: next, ok: true, message: "" };
+  return {
+    player: log(next, `Defense ${gained.skills.defense.level}.`, now),
+    ok: true,
+    message: `Defense ${gained.skills.defense.level}.`,
+  };
+}
+
+export function acceptQuest(player: PlayerState, now = Date.now()): Result {
+  const quest = hydrateQuest(player.quest);
+  if (quest.status === "complete") return { player, ok: false, message: "Bren already has his pelts." };
+  if (quest.status === "active") {
+    return { player: { ...player, whisper: TWO_PELTS.active }, ok: true, message: TWO_PELTS.active };
+  }
+  const next = withMirrors(
+    log(
+      { ...player, quest: { ...quest, status: "active" }, whisper: TWO_PELTS.offer },
+      TWO_PELTS.offer,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: TWO_PELTS.offer };
+}
+
+export function turnInQuest(player: PlayerState, now = Date.now()): Result {
+  const quest = hydrateQuest(player.quest);
+  if (quest.status === "complete") return { player, ok: false, message: "Bren already has his pelts." };
+  if (quest.status !== "active") return { player, ok: false, message: TWO_PELTS.offer };
+  const have = countItem(player.inventory, TWO_PELTS.itemId);
+  if (have < TWO_PELTS.need) {
+    return { player: { ...player, whisper: TWO_PELTS.active }, ok: false, message: TWO_PELTS.active };
+  }
+  const nextInv = removeItem(player.inventory, TWO_PELTS.itemId, TWO_PELTS.need);
+  if (!nextInv) return { player, ok: false, message: TWO_PELTS.active };
+  const gained = grantXp(player.skills, "attack", TWO_PELTS.attackXp);
+  const next = withMirrors(
+    log(
+      {
+        ...player,
+        inventory: nextInv,
+        coins: player.coins + TWO_PELTS.gold,
+        skills: gained.skills,
+        quest: { ...quest, status: "complete", delivered: TWO_PELTS.need, completedAt: now },
+        whisper: TWO_PELTS.thanks,
+      },
+      `${TWO_PELTS.thanks} +${TWO_PELTS.gold} Gold. +${TWO_PELTS.attackXp} Attack XP${gained.leveled ? `. Attack ${gained.skills.attack.level}.` : "."}`,
+      now,
+    ),
+  );
+  return { player: next, ok: true, message: `+${TWO_PELTS.gold} Gold · Bren has his pelts` };
 }
 
 export function pickupPelt(player: PlayerState, now = Date.now()): Result {
@@ -613,7 +712,7 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
     raw.plots?.length >= 3
       ? raw.plots.slice(0, 3).map((plot, id) => ({ id, crop: plot.crop, plantedAt: plot.plantedAt }))
       : Array.from({ length: 3 }, (_, id) => ({ id, crop: null, plantedAt: null }));
-  const skills = raw.skills ?? emptySkills();
+  const skills = hydrateSkills(raw.skills, raw);
   const hasSword = Boolean(raw.hasSword) || countItem(inventory, "iron_blade") > 0;
   const hasArmor = Boolean(raw.hasArmor) || countItem(inventory, "hide_armor") > 0;
   const encounters = ensureEncounters(raw.encounters, raw.wolf);
@@ -631,18 +730,16 @@ export function hydratePlayer(raw: PlayerState): PlayerState {
     maxHealth: raw.maxHealth ?? PLAYER_MAX_HP,
     hasSword,
     hasArmor,
-    strikeDamage: playerStrikeDamage(hasSword),
+    strikeDamage: playerStrikeDamage(hasSword, skills.attack.level),
     inventory,
-    skills: {
-      farming: skills.farming ?? { xp: 0, level: 1 },
-      combat: skills.combat ?? { xp: raw.xp ?? 0, level: raw.level ?? 1 },
-    },
+    skills,
     plots,
     position: raw.position ?? null,
     encounters,
     wolf: mirrorWolf(encounters),
     wildernessWipedAt: raw.wildernessWipedAt ?? null,
     brenDemand,
+    quest: hydrateQuest(raw.quest),
     livingBakery: true,
     seeds: {
       grain: raw.seeds?.grain ?? 0,

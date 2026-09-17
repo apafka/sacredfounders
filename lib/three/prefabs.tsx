@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { Group, PointLight } from "three";
 import { PALETTE } from "./palette";
 import type { CropId } from "@/lib/data/crops";
+import type { EncounterKind } from "@/lib/data/enemies";
 
 const mat = { roughness: 0.88, metalness: 0.02 } as const;
 
@@ -81,7 +82,7 @@ export function BrenMesh() {
   );
 }
 
-export function WolfMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | null; kind?: "wolf" | "dire" }) {
+export function MonsterMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | null; kind?: EncounterKind }) {
   const color =
     tinted === "hit"
       ? PALETTE.cream
@@ -91,7 +92,55 @@ export function WolfMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | 
           ? "#2c241c"
           : kind === "dire"
             ? "#241810"
-            : PALETTE.wolfDark;
+            : kind === "boar"
+              ? "#6a4a32"
+              : kind === "spider"
+                ? "#3a3228"
+                : PALETTE.wolfDark;
+  if (kind === "spider") {
+    return (
+      <group>
+        <mesh position={[0, 0.18, 0]} castShadow>
+          <sphereGeometry args={[0.28, 8, 6]} />
+          <meshStandardMaterial color={color} {...mat} />
+        </mesh>
+        <mesh position={[0.22, 0.2, 0]} castShadow>
+          <sphereGeometry args={[0.16, 6, 5]} />
+          <meshStandardMaterial color={color} {...mat} />
+        </mesh>
+        {[-0.22, 0.22].map((z) =>
+          [-0.18, 0.18].map((x) => (
+            <mesh key={`${x}-${z}`} position={[x, 0.08, z]} rotation={[0, 0, z > 0 ? 0.5 : -0.5]} castShadow>
+              <boxGeometry args={[0.42, 0.05, 0.05]} />
+              <meshStandardMaterial color={color} {...mat} />
+            </mesh>
+          )),
+        )}
+      </group>
+    );
+  }
+  if (kind === "boar") {
+    return (
+      <group>
+        <mesh position={[0, 0.32, 0]} castShadow>
+          <boxGeometry args={[0.95, 0.5, 0.55]} />
+          <meshStandardMaterial color={color} {...mat} />
+        </mesh>
+        <mesh position={[0.48, 0.34, 0]} castShadow>
+          <boxGeometry args={[0.32, 0.32, 0.36]} />
+          <meshStandardMaterial color={color} {...mat} />
+        </mesh>
+        <mesh position={[0.58, 0.4, -0.12]} castShadow>
+          <boxGeometry args={[0.18, 0.06, 0.06]} />
+          <meshStandardMaterial color="#e8d9b0" {...mat} />
+        </mesh>
+        <mesh position={[0.58, 0.4, 0.12]} castShadow>
+          <boxGeometry args={[0.18, 0.06, 0.06]} />
+          <meshStandardMaterial color="#e8d9b0" {...mat} />
+        </mesh>
+      </group>
+    );
+  }
   const scale = kind === "dire" ? 1.45 : 1;
   return (
     <group scale={scale}>
@@ -117,6 +166,10 @@ export function WolfMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | 
       </mesh>
     </group>
   );
+}
+
+export function WolfMesh({ tinted, kind }: { tinted?: "hit" | "agro" | "dead" | null; kind?: "wolf" | "dire" }) {
+  return <MonsterMesh tinted={tinted} kind={kind} />;
 }
 
 export function Pine({ position }: { position: [number, number, number] }) {
@@ -312,11 +365,24 @@ export function CropPlant({
   return <WheatStalk stage={stage} />;
 }
 
-export function PeltDrop({ position, dire = false }: { position: [number, number, number]; dire?: boolean }) {
+export function PeltDrop({
+  position,
+  dire = false,
+  kind,
+}: {
+  position: [number, number, number];
+  dire?: boolean;
+  kind?: EncounterKind;
+}) {
+  const resolved = kind ?? (dire ? "dire" : "wolf");
+  const color =
+    resolved === "dire" ? "#3d2a1c" : resolved === "boar" ? "#c4b08a" : resolved === "spider" ? "#d7cfc0" : "#5a3a28";
+  const size: [number, number, number] =
+    resolved === "dire" ? [0.7, 0.1, 0.5] : resolved === "boar" ? [0.22, 0.18, 0.12] : [0.55, 0.08, 0.4];
   return (
     <mesh position={position} castShadow rotation={[-0.4, 0.4, 0.1]}>
-      <boxGeometry args={dire ? [0.7, 0.1, 0.5] : [0.55, 0.08, 0.4]} />
-      <meshStandardMaterial color={dire ? "#3d2a1c" : "#5a3a28"} {...mat} />
+      <boxGeometry args={size} />
+      <meshStandardMaterial color={color} {...mat} />
     </mesh>
   );
 }

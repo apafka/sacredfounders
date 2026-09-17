@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
-import { PLAYER_MAX_HP, RESPAWN_MS, mitigateDamage, playerStrikeDamage } from "@/lib/combat";
-import { enemyDefinition } from "@/lib/data/enemies";
+import { PLAYER_MAX_HP, mitigateDamage, playerStrikeDamage } from "@/lib/combat";
+import { dropLabel, enemyDefinition, fallHint, foeSpriteKey, huntHint, lootSpriteKey } from "@/lib/data/enemies";
+import { reviveTimedEncounters } from "@/lib/game/wilderness";
 import { BRIDGE_KEY, type WorldBridge } from "../bridge";
 import {
   bindClickToMove,
@@ -66,7 +67,6 @@ export class ValleyScene extends Phaser.Scene {
   private keys: Record<string, Phaser.Input.Keyboard.Key> | undefined;
   private persistAt = 0;
   private bob = 0;
-  private timerArmed = false;
 
   constructor() {
     super("valley");
@@ -103,6 +103,10 @@ export class ValleyScene extends Phaser.Scene {
     label(this, edge.x, edge.y - 22, "Forest edge");
     const deep = worldCenter(10, 4);
     label(this, deep.x, deep.y - 22, "Deep woods");
+    const wallow = worldCenter(VALLEY_SPOTS.wallow.col, VALLEY_SPOTS.wallow.row);
+    label(this, wallow.x, wallow.y - 18, "Boar wallow");
+    const glen = worldCenter(VALLEY_SPOTS.glen.col, VALLEY_SPOTS.glen.row);
+    label(this, glen.x, glen.y - 18, "Spider glen");
 
     const player = this.bridge().getPlayer();
     const spawn =
@@ -114,7 +118,6 @@ export class ValleyScene extends Phaser.Scene {
     this.usedDoor = false;
     this.huntingId = null;
     this.attackCd = 0;
-    this.timerArmed = false;
     this.foes = spawnValleyFoes(player);
     this.reported = new Set(this.foes.filter((foe) => foe.hp <= 0).map((foe) => foe.id));
 
@@ -124,12 +127,12 @@ export class ValleyScene extends Phaser.Scene {
     followActor(this, this.pilgrim, VALLEY_TILES);
 
     for (const foe of this.foes) {
-      const key = foe.kind === "dire" ? "sprite-dire" : "sprite-wolf";
+      const key = foeSpriteKey(foe.kind);
       const sprite = this.add.image(foe.x, foe.y, key).setDepth(10);
       if (foe.hp <= 0) sprite.setVisible(false);
       const bar = this.add.graphics().setDepth(16);
       const loot = this.add
-        .image(foe.x, foe.y + 10, foe.kind === "dire" ? "sprite-hide" : "sprite-pelt")
+        .image(foe.x, foe.y + 10, lootSpriteKey(foe.kind))
         .setDepth(8)
         .setVisible(lootVisible(player, foe.id));
       this.views.set(foe.id, { sprite, bar, loot });
@@ -140,8 +143,8 @@ export class ValleyScene extends Phaser.Scene {
       type: "hint",
       text:
         living > 0
-          ? "The woods run longer now. A pack on the path, something larger further in. Click to fight."
-          : "The forest keeps its own counsel. Home will wake the pack again.",
+          ? "The woods run longer now. Pack on the path, a boar west, a spider east, something larger further in. Click to fight."
+          : "The forest keeps its own counsel. Stay, and the dead return in thirty seconds.",
     });
 
     this.input.setDefaultCursor("pointer");
@@ -156,7 +159,7 @@ export class ValleyScene extends Phaser.Scene {
     let bestDist = TILE * 1.8;
     for (const foe of this.foes) {
       if (foe.hp <= 0) continue;
-      const reach = foe.kind === "dire" ? TILE * 2.1 : TILE * 1.5;
+      const reach = foe.kind === "dire" ? TILE * 2.1 : foe.kind === "boar" ? TILE * 1.8 : TILE * 1.5;
       const dist = Math.hypot(x - foe.x, y - foe.y);
       if (dist < reach && dist < bestDist) {
         best = foe;
@@ -221,7 +224,7 @@ export class ValleyScene extends Phaser.Scene {
       this.huntingId = target.id;
       this.bridge().emit({
         type: "hint",
-        text: target.kind === "dire" ? "You set on the dire wolf." : "You set on the wolf.",
+        text: huntHint(target.kind),
       });
       this.tryAttack(target.id);
       return;
@@ -239,7 +242,7 @@ export class ValleyScene extends Phaser.Scene {
     view.loot.setVisible(false);
     burst(this, view.loot.x, view.loot.y, 0x8a6a4a);
     const foe = this.foes.find((item) => item.id === id);
-    const labelText = foe?.kind === "dire" ? "Dire Hide acquired." : "Wolf Pelt acquired.";
+    const labelText = `${dropLabel(foe?.kind ?? "wolf")} acquired.`;
     this.bridge().emit({ type: "pickup-pelt", id });
     this.bridge().emit({ type: "toast", text: labelText });
   }
@@ -257,7 +260,7 @@ export class ValleyScene extends Phaser.Scene {
       this.huntingId = null;
       return false;
     }
-    const damage = playerStrikeDamage(this.bridge().getPlayer().hasSword);
+    const damage = playerStrikeDamage(this.bridge().getPlayer().hasSword, this.bridge().getPlayer().skills.attack.level);
     const next = tryStrike(this.body, foe, damage);
     if (next) {
       foe.hp = next.hp;
@@ -269,6 +272,7 @@ export class ValleyScene extends Phaser.Scene {
       floatText(this, foe.x, foe.y - 18, `-${damage}`, "#f3efe4");
       burst(this, foe.x, foe.y, 0xb33a2b);
       this.pilgrim.setFlipX(foe.x < this.body.x);
+      this.bridge().emit({ type: "strike" });
       if (foe.hp <= 0) this.onFoeDown(foe);
       return true;
     }
@@ -294,10 +298,10 @@ export class ValleyScene extends Phaser.Scene {
       });
       view.loot.setPosition(foe.x, foe.y + 8).setVisible(true);
     }
-    const fallen = foe.kind === "dire" ? "The dire wolf falls" : "The wolf falls";
+    const fallen = `${enemyDefinition(foe.kind).name} falls`;
     floatText(this, foe.x, foe.y - 10, fallen, "#c4a35a");
     this.bridge().emit({ type: "wolf-down", id: foe.id });
-    this.bridge().emit({ type: "hint", text: foe.kind === "dire" ? "A heavy hide in the grass. Click it." : "A pelt in the grass. Click it." });
+    this.bridge().emit({ type: "hint", text: fallHint(foe.kind) });
   }
 
   private playerStep(x: number, y: number) {
@@ -318,21 +322,26 @@ export class ValleyScene extends Phaser.Scene {
   }
 
   private maybeTimerRespawn() {
-    if (this.timerArmed || RESPAWN_MS <= 0) return;
     const player = this.bridge().getPlayer();
-    if (!player.wildernessWipedAt) return;
-    if (Date.now() - player.wildernessWipedAt < RESPAWN_MS) return;
-    this.timerArmed = true;
+    const { revived, encounters } = reviveTimedEncounters(player.encounters, Date.now());
+    if (!revived.length) return;
     this.bridge().emit({ type: "respawn-wilderness" });
-    this.foes = spawnValleyFoes({ ...player, encounters: player.encounters.map((item) => ({ ...item, alive: true, hp: enemyDefinition(item.kind).health, lootDropped: false, lootTaken: false })) });
-    this.reported.clear();
-    for (const foe of this.foes) {
-      const view = this.views.get(foe.id);
+    const fresh = spawnValleyFoes({ ...player, encounters });
+    for (const id of revived) {
+      const next = fresh.find((item) => item.id === id);
+      const index = this.foes.findIndex((item) => item.id === id);
+      if (!next || index < 0) continue;
+      this.foes[index] = next;
+      this.reported.delete(id);
+      const view = this.views.get(id);
       if (!view) continue;
-      view.sprite.setVisible(true).setAlpha(1).setScale(1).clearTint().setPosition(foe.x, foe.y);
+      view.sprite.setVisible(true).setAlpha(1).setScale(1).clearTint().setPosition(next.x, next.y);
       view.loot.setVisible(false);
     }
-    this.bridge().emit({ type: "hint", text: "The pack answers again from the trees." });
+    this.bridge().emit({
+      type: "hint",
+      text: revived.length === 1 ? "A shape answers again from the trees." : "The pack answers again from the trees.",
+    });
   }
 
   private resetLocalFromHeal() {
@@ -415,12 +424,13 @@ export class ValleyScene extends Phaser.Scene {
     for (let i = 0; i < this.foes.length; i += 1) {
       const foe = this.foes[i];
       if (foe.hp <= 0) continue;
-      const bite = mitigateDamage(enemyDefinition(foe.kind).damage, player.hasArmor);
+      const bite = mitigateDamage(enemyDefinition(foe.kind).damage, player.hasArmor, player.skills.defense.level);
       const ticked = tickWolf({ ...this.body, hp }, foe, dt, Math.random, spawnWanderBounds(foe.spawnX, foe.spawnY, TILE * 2.5, mapBounds), bite);
       this.foes[i] = { ...foe, ...ticked.wolf };
       if (ticked.wolfHit && ticked.player.hp < hp) {
         floatText(this, this.body.x, this.body.y - 18, `-${ticked.wolfHit}`, "#b33a2b");
         this.cameras.main.shake(80, 0.004);
+        this.bridge().emit({ type: "wound" });
       }
       hp = ticked.player.hp;
     }
@@ -452,7 +462,7 @@ export class ValleyScene extends Phaser.Scene {
           if (foe.mode === "attack" || foe.mode === "chase") view.sprite.setTint(0x8a4a32);
           else view.sprite.clearTint();
         }
-        paintHpBar(view.bar, foe.x, foe.y - (foe.kind === "dire" ? 22 : 16), foe.hp / foe.maxHp, foe.kind === "dire" ? 40 : 32);
+        paintHpBar(view.bar, foe.x, foe.y - (foe.kind === "dire" ? 22 : 16), foe.hp / foe.maxHp, foe.kind === "dire" || foe.kind === "boar" ? 40 : 32);
       } else {
         view.bar.clear();
       }

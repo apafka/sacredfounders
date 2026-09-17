@@ -53,9 +53,9 @@ const VALLEY_CORE = [
   "########################",
   "#TTTTTTTTTTTTTTTTTTTTTT#",
   "#TTTTTTTTTTTTTTTTTTTTTT#",
-  "#TTTTT========TTTTTTTTT#",
-  "#TTTTT========TTTTTTTTT#",
-  "#TTTTTT======TTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTTT======TTTTTTTTTTT#",
   "#TTTTTTT====TTTTTTTTTTT#",
   "#TTTTTT======TTTTTTTTTT#",
   "#TTTTTT====TTTTTTTTTTTT#",
@@ -64,7 +64,20 @@ const VALLEY_CORE = [
   "#TTTTT========TTTTTTTTT#",
   "#TTTTTT======TTTTTTTTTT#",
   "#TTTTT========TTTTTTTTT#",
-  "#TTTTTTT====TTTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTTT======TTTTTTTTTTT#",
+  "#TTTTTT====TTTTTTTTTTTT#",
+  "#TTTTTT======TTTTTTTTTT#",
+  "#TTTTTT====TTTTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TT,,,======TTTTTTTTTTT#",
+  "#TT,,,====TTTTTTTTTTTTT#",
+  "#TT,,,======TTTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTT========TTTTTTTTTT#",
+  "#TTTTT======TTTTTTTTTTT#",
   "#,,,,,,,,====,,,,,,,,,,#",
   "#,,,,,,,,,====,,,,,,,,,#",
   "#,,,,,,,,,,====,,,,,,,,#",
@@ -114,7 +127,7 @@ export function expandTileMap(
 }
 
 export const HEARTH_TILES = expandTileMap(HEARTH_CORE, COLS, 22);
-export const VALLEY_TILES = expandTileMap(VALLEY_CORE, COLS, 38, "T");
+export const VALLEY_TILES = expandTileMap(VALLEY_CORE, COLS, VALLEY_CORE.length, "T");
 
 export const HEARTH_ROWS = HEARTH_TILES.length;
 export const VALLEY_ROWS = VALLEY_TILES.length;
@@ -170,38 +183,69 @@ export const HEARTH_SPOTS = {
 } as const;
 
 export const VALLEY_SPOTS = {
-  spawn: { col: 16, row: 26 },
+  spawn: { col: 16, row: 39 },
   wolf: { col: VALLEY_ENCOUNTERS[0].col, row: VALLEY_ENCOUNTERS[0].row },
-  door: { col: 17, row: 27 },
-  tracks: { col: 12, row: 19 },
+  door: { col: 17, row: 40 },
+  tracks: { col: 12, row: 30 },
   scale: { col: 8, row: 6 },
-  carving: { col: 14, row: 21 },
+  carving: { col: 14, row: 35 },
+  wallow: { col: 4, row: 23 },
+  glen: { col: 26, row: 16 },
 } as const;
 
-export const VALLEY_TREES: Spot[] = [
-  { col: 3, row: 2 },
-  { col: 4, row: 4 },
-  { col: 18, row: 2 },
-  { col: 19, row: 4 },
-  { col: 2, row: 5 },
-  { col: 20, row: 5 },
-  { col: 6, row: 1 },
-  { col: 15, row: 1 },
-  { col: 9, row: 2 },
-  { col: 14, row: 5 },
-  { col: 22, row: 3 },
-  { col: 24, row: 6 },
-  { col: 26, row: 2 },
-  { col: 28, row: 4 },
-  { col: 3, row: 8 },
-  { col: 21, row: 8 },
-  { col: 5, row: 11 },
-  { col: 19, row: 10 },
-  { col: 2, row: 14 },
-  { col: 22, row: 12 },
-  { col: 27, row: 9 },
-  { col: 29, row: 15 },
-];
+function scatterValleyTrees(): Spot[] {
+  const spots: Spot[] = [];
+  const seen = new Set<string>();
+  const add = (col: number, row: number) => {
+    const key = `${col},${row}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    spots.push({ col, row });
+  };
+  for (const seed of [
+    [3, 2],
+    [4, 4],
+    [18, 2],
+    [19, 4],
+    [2, 5],
+    [20, 5],
+    [6, 1],
+    [15, 1],
+    [9, 2],
+    [14, 5],
+    [22, 3],
+    [24, 6],
+    [26, 2],
+    [28, 4],
+    [3, 8],
+    [21, 8],
+    [5, 11],
+    [19, 10],
+    [2, 14],
+    [22, 12],
+    [27, 9],
+    [29, 15],
+    [3, 18],
+    [21, 18],
+    [28, 20],
+    [2, 22],
+    [22, 22],
+    [27, 24],
+    [29, 28],
+    [3, 33],
+    [21, 34],
+  ] as const) {
+    add(seed[0], seed[1]);
+  }
+  for (let row = 1; row <= 36; row += 1) {
+    for (const col of [2, 3, 20, 21, 22, 27, 28, 29]) {
+      if ((col + row) % 5 === 0) add(col, row);
+    }
+  }
+  return spots;
+}
+
+export const VALLEY_TREES: Spot[] = scatterValleyTrees();
 
 export function tileAt(map: readonly string[], col: number, row: number): string {
   return map[row]?.[col] ?? "#";

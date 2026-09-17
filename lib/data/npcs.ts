@@ -18,6 +18,9 @@ export type NpcDefinition = {
   demandReadyGrain: string;
   demandThanksBread: string;
   demandThanksGrain: string;
+  questOffer: string;
+  questReady: string;
+  questThanks: string;
   buyItem: ItemId;
   buyPrice: number;
 };
@@ -39,6 +42,9 @@ export const BREN: NpcDefinition = {
   demandReadyGrain: "That's the grain. In with you, then gold.",
   demandThanksBread: "Three loaves. The shelf is honest. Don't spend it all staring at the trees.",
   demandThanksGrain: "Grain in the bin. The oven can work. Take this for the trouble.",
+  questOffer: "The woods took my last coats. Bring me two wolf pelts and I'll see you paid like a neighbor.",
+  questReady: "Those pelts will make a coat. Hand them here.",
+  questThanks: "Two pelts. That's a coat started. Don't spend it all staring at the trees.",
   buyItem: "wheat",
   buyPrice: 2,
 };
@@ -65,7 +71,7 @@ export const BREN_SHOP: ShopListing[] = [
     sku: "sword",
     name: "Iron Blade",
     cost: SWORD_COST,
-    blurb: `Your strike hits for ${SWORD_DAMAGE}.`,
+    blurb: `Unarmed 3, blade ${SWORD_DAMAGE}. Attack skill still adds.`,
     itemId: "iron_blade",
   },
   {

@@ -78,7 +78,7 @@ test("hearth has three garden plots, cottage furniture pads, baker, and a door",
   assert.equal(tileAt(HEARTH_TILES, HEARTH_SPOTS.spawn.col, HEARTH_SPOTS.spawn.row), ".");
 });
 
-test("valley path reaches a wolf pack, a deep dire wolf, presence markers, and a door home", () => {
+test("valley path reaches a longer pack, off-path beasts, a deep dire wolf, presence markers, and a door home", () => {
   for (const spot of Object.values(VALLEY_SPOTS)) {
     assert.ok(inBounds(spot.col, spot.row, COLS, VALLEY_TILES.length));
     assert.ok(isWalkable(tileAt(VALLEY_TILES, spot.col, spot.row)));
@@ -90,10 +90,12 @@ test("valley path reaches a wolf pack, a deep dire wolf, presence markers, and a
   assert.ok(chars.includes("D"));
   assert.ok(isDoorTile(tileAt(VALLEY_TILES, VALLEY_SPOTS.door.col, VALLEY_SPOTS.door.row)));
   assert.equal(tileAt(VALLEY_TILES, VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row), "=");
-  assert.ok(VALLEY_TILES.length >= 32, "valley should run further from home than the old forest-edge slice");
-  assert.equal(VALLEY_ENCOUNTERS.length, 4);
-  assert.equal(VALLEY_ENCOUNTERS.filter((item) => item.kind === "wolf").length, 3);
+  assert.ok(VALLEY_TILES.length >= 44, "valley should run further from home than the old forest-edge slice");
+  assert.equal(VALLEY_ENCOUNTERS.length, 7);
+  assert.equal(VALLEY_ENCOUNTERS.filter((item) => item.kind === "wolf").length, 4);
   assert.equal(VALLEY_ENCOUNTERS.some((item) => item.kind === "dire"), true);
+  assert.equal(VALLEY_ENCOUNTERS.some((item) => item.kind === "boar"), true);
+  assert.equal(VALLEY_ENCOUNTERS.some((item) => item.kind === "spider"), true);
   for (const foe of VALLEY_ENCOUNTERS) {
     assert.ok(inBounds(foe.col, foe.row, COLS, VALLEY_TILES.length));
     assert.ok(isWalkable(tileAt(VALLEY_TILES, foe.col, foe.row)));
@@ -103,6 +105,10 @@ test("valley path reaches a wolf pack, a deep dire wolf, presence markers, and a
   const nearestWolf = Math.max(...VALLEY_ENCOUNTERS.filter((item) => item.kind === "wolf").map((item) => item.row));
   assert.ok(dire && dire.row < nearestWolf, "dire wolf is deeper than the pack");
   assert.ok(VALLEY_SPOTS.door.row - nearestWolf >= 6, "first wolf is a walk from the hearth door");
+  const boar = VALLEY_ENCOUNTERS.find((item) => item.kind === "boar");
+  const spider = VALLEY_ENCOUNTERS.find((item) => item.kind === "spider");
+  assert.ok(boar && tileAt(VALLEY_TILES, boar.col, boar.row) !== "=");
+  assert.ok(spider && spider.col > 22, "spider sits off the east pad");
 });
 
 test("walls collide; path, grass, floor, forest, and door do not", () => {

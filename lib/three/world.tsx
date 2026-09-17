@@ -313,6 +313,8 @@ export function ValleyWorld({
   const carving = tileToWorld(VALLEY_SPOTS.carving.col, VALLEY_SPOTS.carving.row);
   const edge = tileToWorld(VALLEY_SPOTS.wolf.col, VALLEY_SPOTS.wolf.row);
   const deep = tileToWorld(VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.col ?? 10, VALLEY_ENCOUNTERS.find((item) => item.kind === "dire")?.row ?? 4);
+  const wallow = tileToWorld(VALLEY_SPOTS.wallow.col, VALLEY_SPOTS.wallow.row);
+  const glen = tileToWorld(VALLEY_SPOTS.glen.col, VALLEY_SPOTS.glen.row);
 
   return (
     <group>
@@ -363,6 +365,8 @@ export function ValleyWorld({
       <WorldLabel text="Home" position={[door.x, 1.7, door.z]} />
       <WorldLabel text="Forest edge" position={[edge.x, 1.3, edge.z]} />
       <WorldLabel text="Deep woods" position={[deep.x, 1.45, deep.z]} />
+      <WorldLabel text="Boar wallow" position={[wallow.x, 1.2, wallow.z]} />
+      <WorldLabel text="Spider glen" position={[glen.x, 1.2, glen.z]} />
     </group>
   );
 }

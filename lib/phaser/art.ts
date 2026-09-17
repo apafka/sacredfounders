@@ -48,6 +48,10 @@ export const ART_PACK_FILES: Record<string, string> = {
   "sprite-carving": "carving.png",
   "sprite-pelt": "pelt.png",
   "sprite-hide": "hide.png",
+  "sprite-tusk": "tusk.png",
+  "sprite-silk": "silk.png",
+  "sprite-boar": "boar.png",
+  "sprite-spider": "spider.png",
   "sprite-marker": "marker.png",
 };
 
